@@ -2,6 +2,7 @@ import { XMLElement } from "@xml-tools/ast";
 import { getUI5PropertyByXMLAttributeKey } from "@ui5-language-assistant/logic-utils";
 import { AnnotationPathInXMLAttributeValueCompletion } from "../../../api";
 import { UI5AttributeValueCompletionOptions } from "./index";
+import { getRootElement } from "../utils/misc";
 
 /**
  * Suggests values for macros metaPath
@@ -64,14 +65,6 @@ export function metaPathSuggestions({
   //   })
   // );
   return [];
-}
-
-function getRootElement(element: XMLElement): XMLElement {
-  let current: XMLElement = element;
-  while (current.parent.type === "XMLElement") {
-    current = current.parent;
-  }
-  return current;
 }
 
 function filterAnnotations(control: string, annotations: any[]): any[] {

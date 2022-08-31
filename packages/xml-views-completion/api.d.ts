@@ -40,11 +40,13 @@ export type UI5CompletionNode =
   | UI5Association
   | UI5EnumValue
   | BooleanValue
-  | AnnotationPathValue;
+  | AnnotationPathValue
+  | AnnotationTargetValue;
 
 export type UI5XMLViewCompletion =
   | UI5NodeXMLViewCompletion
   | AnnotationPathInXMLAttributeValueCompletion
+  | AnnotationTargetInXMLAttributeValueCompletion
   | BooleanValueInXMLAttributeValueCompletion;
 
 export type UI5NodeXMLViewCompletion =
@@ -67,7 +69,8 @@ export type UI5XMLViewCompletionTypeName =
   | "UI5NamespacesInXMLAttributeKey"
   | "UI5NamespacesInXMLAttributeValue"
   | "BooleanValueInXMLAttributeValue"
-  | "AnnotationPathInXMLAttributeValue";
+  | "AnnotationPathInXMLAttributeValue"
+  | "AnnotationTargetInXMLAttributeValue";
 
 /**
  * Note that this interface does not deal with "Editor Behavior". e.g:
@@ -152,9 +155,20 @@ export interface AnnotationPathValue {
   name: string;
   value: string;
 }
+
+export interface AnnotationTargetValue {
+  kind: "AnnotationTarget";
+  name: string;
+  value: string;
+}
 export interface AnnotationPathInXMLAttributeValueCompletion
   extends BaseXMLViewCompletion<XMLAttribute, AnnotationPathValue> {
   type: "AnnotationPathInXMLAttributeValue";
+}
+
+export interface AnnotationTargetInXMLAttributeValueCompletion
+  extends BaseXMLViewCompletion<XMLAttribute, AnnotationTargetValue> {
+  type: "AnnotationTargetInXMLAttributeValue";
 }
 
 /** Check if the suggestion is a UI5 semantic model xml completion according to its type property */

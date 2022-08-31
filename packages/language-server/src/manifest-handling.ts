@@ -60,7 +60,8 @@ export function getMinUI5VersionForXMLFile(
 ): string | undefined {
   const manifestFilesForCurrentFolder = filter(
     Object.keys(manifestData),
-    (manifestPath) => xmlPath.startsWith(dirname(manifestPath))
+    (manifestPath) =>
+      xmlPath.replace(/\\/g, "/").startsWith(dirname(manifestPath))
   );
 
   const closestManifestPath = maxBy(

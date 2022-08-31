@@ -21,7 +21,7 @@ export function filterBarAttributeSuggestions({
 
   if (
     ui5Property?.library === SAP_FE_MACROS &&
-    ui5Property.name === "filterBar"
+    ui5Property?.name === "filterBar"
   ) {
     const root = getRootElement(element);
     const ids = collectFilterBarElements(root, context);
