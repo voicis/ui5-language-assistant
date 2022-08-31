@@ -16,6 +16,8 @@
   "license": "Apache-2.0",
   "typings": "./api.d.ts",
   "dependencies": {
+    "@sap-ux/annotation-converter": "^0.5.19",
+    "@sap-ux/edmx-parser": "^0.5.11",
     "@ui5-language-assistant/semantic-model-types": "^3.3.0",
     "ajv": "6.12.3",
     "deep-freeze-strict": "1.1.1",

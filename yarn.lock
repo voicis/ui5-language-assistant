@@ -1341,6 +1341,18 @@
   dependencies:
     "@types/node" ">= 8"
 
+"@sap-ux/annotation-converter@^0.5.19":
+  version "0.5.19"
+  resolved "https://registry.yarnpkg.com/@sap-ux/annotation-converter/-/annotation-converter-0.5.19.tgz#cca21210fd98baad6bbd8a6db657672caca5bc00"
+  integrity sha512-sGOHj/2K0IqUxWYAfbR7ZO7RmxNguuByAOv6E6XeF+8tvFmeQCNR08AyMO3TPkBpegNzgRHgp0nFkcd3QgTWOw==
+
+"@sap-ux/edmx-parser@^0.5.11":
+  version "0.5.11"
+  resolved "https://registry.yarnpkg.com/@sap-ux/edmx-parser/-/edmx-parser-0.5.11.tgz#ef8902b18101d5657135a2e49ae5c0e7cdcb590d"
+  integrity sha512-zf0/qoH/s1B650HsNec85BSP3xa0QDxdL3AOFQQPBlFAVgM0HS3rK3ndXt2LHfnpCVwvVLFlPIuVK2vPO8uL0w==
+  dependencies:
+    xml-js "1.6.11"
+
 "@sap/swa-for-sapbas-vsx@1.1.9":
   version "1.1.9"
   resolved "https://registry.yarnpkg.com/@sap/swa-for-sapbas-vsx/-/swa-for-sapbas-vsx-1.1.9.tgz#c180dcf7e25abc443127df19332a2f2d0a6c780c"
@@ -7745,6 +7757,11 @@ safe-regex@^1.1.0:
   resolved "https://registry.yarnpkg.com/safer-buffer/-/safer-buffer-2.1.2.tgz#44fa161b0187b9549dd84bb91802f9bd8385cd6a"
   integrity sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg==
 
+sax@^1.2.4:
+  version "1.2.4"
+  resolved "https://registry.yarnpkg.com/sax/-/sax-1.2.4.tgz#2816234e2378bddc4e5354fab5caa895df7100d9"
+  integrity sha512-NqVDv9TpANUjFm0N8uM5GxL36UgKi9/atZw+x7YFnQ8ckwFGKrl4xX4yWtrey3UJm5nP1kUbnYgLopqWNSRhWw==
+
 schema-utils@^3.0.0:
   version "3.0.0"
   resolved "https://registry.yarnpkg.com/schema-utils/-/schema-utils-3.0.0.tgz#67502f6aa2b66a2d4032b4279a2944978a0913ef"
@@ -8797,10 +8814,10 @@ typedarray@^0.0.6:
   resolved "https://registry.yarnpkg.com/typedarray/-/typedarray-0.0.6.tgz#867ac74e3864187b1d3d47d996a78ec5c8830777"
   integrity sha1-hnrHTjhkGHsdPUfZlqeOxciDB3c=
 
-typescript@3.9.7:
-  version "3.9.7"
-  resolved "https://registry.yarnpkg.com/typescript/-/typescript-3.9.7.tgz#98d600a5ebdc38f40cb277522f12dc800e9e25fa"
-  integrity sha512-BLbiRkiBzAwsjut4x/dsibSTB6yWpwT5qWmC2OfuCg3GgVQCSgMs4vEctYPhsaGtd0AeuuHMkjZ2h2WG8MSzRw==
+typescript@4.8.2:
+  version "4.8.2"
+  resolved "https://registry.yarnpkg.com/typescript/-/typescript-4.8.2.tgz#e3b33d5ccfb5914e4eeab6699cf208adee3fd790"
+  integrity sha512-C0I1UsrrDHo2fYI5oaCGbSejwX4ch+9Y5jTQELvovfmFkK3HHSZJB8MSJcWLmCUBzQBchCrZ9rMRV6GuNrvGtw==
 
 uc.micro@^1.0.1, uc.micro@^1.0.5:
   version "1.0.6"
@@ -9317,6 +9334,13 @@ write-pkg@^3.1.0:
   dependencies:
     sort-keys "^2.0.0"
     write-json-file "^2.2.0"
+
+xml-js@1.6.11:
+  version "1.6.11"
+  resolved "https://registry.yarnpkg.com/xml-js/-/xml-js-1.6.11.tgz#927d2f6947f7f1c19a316dd8eea3614e8b18f8e9"
+  integrity sha512-7rVi2KMfwfWFl+GpPg6m80IVMWXLRjO+PxTq7V2CDhoGak0wzYzFgUY2m4XJ47OGdXd8eLE8EmwfAmdjw7lC1g==
+  dependencies:
+    sax "^1.2.4"
 
 xtend@~4.0.1:
   version "4.0.2"

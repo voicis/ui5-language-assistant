@@ -40,7 +40,8 @@ export type UI5XMLViewIssue =
   | UnknownAttributeKeyIssue
   | UnknownTagNameIssue
   | InvalidAggregationCardinalityIssue
-  | InvalidAggregationTypeIssue;
+  | InvalidAggregationTypeIssue
+  | UnknownAnnotationPathIssue;
 
 // A sub-interface per issue type may seem redundant, but this allows
 // a sub-issue type to have additional properties (if needed) in the future.
@@ -48,6 +49,9 @@ export interface UnknownEnumValueIssue extends BaseUI5XMLViewIssue {
   kind: "UnknownEnumValue";
 }
 
+export interface UnknownAnnotationPathIssue extends BaseUI5XMLViewIssue {
+  kind: "UnknownAnnotationPath";
+}
 export interface UseOfDeprecatedClassIssue extends BaseUI5XMLViewIssue {
   kind: "UseOfDeprecatedClass";
 }

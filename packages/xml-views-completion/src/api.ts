@@ -87,6 +87,9 @@ export function isUI5NodeXMLViewCompletion(
     case "BooleanValueInXMLAttributeValue": {
       return false;
     }
+    case "AnnotationPathInXMLAttributeValue": {
+      return false;
+    }
     /* istanbul ignore next - defensive programming */
     default: {
       assertNever(type, true);

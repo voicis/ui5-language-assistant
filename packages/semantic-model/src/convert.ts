@@ -9,6 +9,7 @@ import {
   isArray,
   isFunction,
 } from "lodash";
+
 import * as model from "@ui5-language-assistant/semantic-model-types";
 import { Json } from "../api";
 import * as apiJson from "./api-json";
@@ -16,10 +17,14 @@ import { isLibraryFile } from "./validate";
 import { fixLibrary } from "./fix-api-json";
 import { error, hasProperty, newMap } from "./utils";
 
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const parser = require("@sap-ux/edmx-parser");
+
 export function convertToSemanticModel(
   libraries: Record<string, Json>,
   jsonSymbols: Record<string, apiJson.ConcreteSymbol>,
   strict: boolean,
+  manifest: any | undefined,
   printValidationErrors: boolean
 ): model.UI5SemanticModel {
   const model: model.UI5SemanticModel = {
@@ -31,6 +36,9 @@ export function convertToSemanticModel(
     namespaces: newMap(),
     typedefs: newMap(),
     interfaces: newMap(),
+    annotations: [],
+    customViews: newMap(),
+    metadata: [],
   };
 
   // Convert to array (with deterministic order) to ensure consistency when inserting to maps
@@ -63,6 +71,55 @@ export function convertToSemanticModel(
     model
   );
 
+  const targets = manifest?.data?.["sap.ui5"]?.routing?.targets;
+  if (targets) {
+    for (const name of Object.keys(targets)) {
+      const target = targets[name];
+      if (target) {
+        const settings = target?.options?.settings;
+        if (settings.entitySet && settings.viewName) {
+          model.customViews[settings.viewName] = {
+            entitySet: settings.entitySet,
+          };
+        }
+      }
+    }
+  }
+
+  // read annotations
+
+  if (manifest?.metadataContent) {
+    const myParsedEdmx = parser.parse(manifest.metadataContent);
+    const annotations = manifest.annotationContent.map(parser.parse);
+    const mergedModel = parser.merge(myParsedEdmx, ...annotations);
+
+    model.annotations = Object.keys(mergedModel._annotations).reduce(
+      (acc, key) => {
+        const value = mergedModel._annotations[key];
+        const uniqueTargets: any[] = [];
+        for (const list of value) {
+          const match = acc.find((a) => a.target === list.target);
+          if (match) {
+            for (const annotation of list.annotations) {
+              const matchedAnnotation = match.annotations.find(
+                (a) =>
+                  a.term === annotation.term &&
+                  a.qualifier === annotation.qualifier
+              );
+              if (!matchedAnnotation) {
+                match.annotations.push(annotation);
+              }
+            }
+          } else {
+            uniqueTargets.push(list);
+          }
+        }
+        return [...acc, ...uniqueTargets];
+      },
+      [] as any[]
+    );
+  }
+
   return model;
 }
 
@@ -88,6 +145,9 @@ function convertLibraryToSemanticModel(
     functions: newMap(),
     namespaces: newMap(),
     typedefs: newMap(),
+    annotations: [],
+    metadata: [],
+    customViews: {},
   };
   if (lib.symbols === undefined) {
     return model;

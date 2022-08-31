@@ -352,7 +352,7 @@ context("The ui5-language-assistant semantic model package API", () => {
 
     it("cannot remove first-level property from the model", () => {
       expect(() => {
-        delete model.namespaces;
+        delete (model as any).namespaces;
       }).to.throw(TypeError, cannotDeleteMatcher);
     });
 
@@ -361,7 +361,7 @@ context("The ui5-language-assistant semantic model package API", () => {
       expect(firstClass).to.exist;
       expect(firstClass.name).to.exist;
       expect(() => {
-        delete firstClass.name;
+        delete (firstClass as any).name;
       }).to.throw(TypeError, cannotDeleteMatcher);
     });
   });

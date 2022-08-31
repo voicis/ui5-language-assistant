@@ -17,12 +17,14 @@ export function generate({
   libraries,
   typeNameFix,
   strict,
+  manifest = undefined,
   printValidationErrors = true,
 }: {
   version: string;
   libraries: Record<string, Json>;
   typeNameFix: TypeNameFix;
   strict: boolean;
+  manifest?: any;
   printValidationErrors?: boolean;
 }): UI5SemanticModel {
   const jsonSymbols = newMap<ConcreteSymbol>();
@@ -30,6 +32,7 @@ export function generate({
     libraries,
     jsonSymbols,
     strict,
+    manifest,
     printValidationErrors
   );
   generateMissingSymbols(model, strict);

@@ -122,10 +122,14 @@ connection.onCompletion(
       const documentPath = URI.parse(documentUri).fsPath;
       const minUI5Version = getMinUI5VersionForXMLFile(documentPath);
       const framework = getUI5FrameworkForXMLFile(documentPath);
+      const cachePath = textDocumentPosition.textDocument.uri.split(
+        "webapp"
+      )[0];
       const model = await getSemanticModel(
-        initializationOptions?.modelCachePath,
+        cachePath,
         framework,
-        minUI5Version
+        minUI5Version,
+        false
       );
       connection.sendNotification("UI5LanguageAssistant/ui5Model", {
         url: getCDNBaseUrl(framework, model.version),
@@ -166,8 +170,11 @@ connection.onHover(
       const documentPath = URI.parse(documentUri).fsPath;
       const minUI5Version = getMinUI5VersionForXMLFile(documentPath);
       const framework = getUI5FrameworkForXMLFile(documentPath);
+      const cachePath = textDocumentPosition.textDocument.uri.split(
+        "webapp"
+      )[0];
       const ui5Model = await getSemanticModel(
-        initializationOptions?.modelCachePath,
+        cachePath,
         framework,
         minUI5Version
       );
@@ -220,8 +227,9 @@ documents.onDidChangeContent(async (changeEvent) => {
     const flexEnabled = getFlexEnabledFlagForXMLFile(documentPath);
     const minUI5Version = getMinUI5VersionForXMLFile(documentPath);
     const framework = getUI5FrameworkForXMLFile(documentPath);
+    const cachePath = changeEvent.document.uri.split("webapp")[0];
     const ui5Model = await getSemanticModel(
-      initializationOptions?.modelCachePath,
+      cachePath,
       framework,
       minUI5Version
     );
@@ -252,11 +260,8 @@ connection.onCodeAction(async (params) => {
   const documentPath = URI.parse(docUri).fsPath;
   const minUI5Version = getMinUI5VersionForXMLFile(documentPath);
   const framework = getUI5FrameworkForXMLFile(documentPath);
-  const ui5Model = await getSemanticModel(
-    initializationOptions?.modelCachePath,
-    framework,
-    minUI5Version
-  );
+  const cachePath = params.textDocument.uri.split("webapp")[0];
+  const ui5Model = await getSemanticModel(cachePath, framework, minUI5Version);
   connection.sendNotification("UI5LanguageAssistant/ui5Model", {
     url: getCDNBaseUrl(framework, ui5Model.version),
     framework,

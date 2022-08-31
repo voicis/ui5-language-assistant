@@ -20,6 +20,7 @@ export function generate(opts: {
   libraries: Record<string, Json>;
   typeNameFix: TypeNameFix;
   strict: boolean;
+  manifest?: any;
   printValidationErrors?: boolean;
 }): UI5SemanticModel;
 

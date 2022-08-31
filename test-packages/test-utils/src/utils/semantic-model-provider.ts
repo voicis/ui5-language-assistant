@@ -320,6 +320,7 @@ export async function generateModel({
     libraries: libToFileContent,
     typeNameFix: getTypeNameFixForVersion(version),
     strict: strict,
+    manifest: undefined,
     // If we're in strict mode we will want to see the validation errors
     printValidationErrors: strict,
   });

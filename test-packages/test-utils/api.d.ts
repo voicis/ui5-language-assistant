@@ -166,5 +166,6 @@ export type generateFunc = (opts: {
   libraries: Record<string, Json>;
   typeNameFix: TypeNameFix;
   strict: boolean;
+  manifest: any | undefined;
   printValidationErrors?: boolean;
 }) => UI5SemanticModel;
