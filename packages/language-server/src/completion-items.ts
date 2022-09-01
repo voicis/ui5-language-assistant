@@ -111,6 +111,8 @@ export function computeLSPKind(
       return CompletionItemKind.Constant;
     case "AnnotationPathInXMLAttributeValue":
       return CompletionItemKind.Value;
+    case "AnnotationTargetInXMLAttributeValue":
+      return CompletionItemKind.Value;
     default:
       assertNever(suggestion, true);
       return CompletionItemKind.Text;
@@ -229,6 +231,7 @@ function createTextEdits(
       break;
     }
     case "AnnotationPathInXMLAttributeValue":
+    case "AnnotationTargetInXMLAttributeValue":
     case "UI5EnumsInXMLAttributeValue": {
       // The 'else' part will never happen because to get suggestions for attribute value, the "" at least must exist so
       // the attribute value syntax exists

@@ -13,6 +13,7 @@ import { validateExplicitAggregationCardinality } from "./elements/cardinality-o
 import { validateAggregationType } from "./elements/type-of-aggregation";
 import { validateUnknownAnnotationPath } from "./attributes/unknown-annotation-path";
 import { validateUnknownElementId } from "./attributes/unknown-element-id";
+import { validateUnknownAnnotationTarget } from "./attributes/unknown-annotation-target";
 
 export { validateUnknownEnumValue } from "./attributes/unknown-enum-value";
 export { validateUnknownXmlnsNamespace } from "./attributes/unknown-xmlns-namespace";
@@ -39,6 +40,7 @@ export const defaultValidators: UI5ValidatorsConfig = {
   attribute: [
     validateUnknownEnumValue,
     validateUnknownAnnotationPath,
+    validateUnknownAnnotationTarget,
     validateUnknownXmlnsNamespace,
     validateBooleanValue,
     validateUnknownAttributeKey,
