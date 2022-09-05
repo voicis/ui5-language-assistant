@@ -52,6 +52,8 @@ describe("the UI5 language assistant ui5 model", () => {
   it("will get UI5 semantic model", async () => {
     const ui5Model = await getSemanticModel(
       NO_CACHE_FOLDER,
+      "file://webapp/manifest.json",
+      undefined,
       FRAMEWORK,
       undefined,
       true
@@ -71,6 +73,8 @@ describe("the UI5 language assistant ui5 model", () => {
         };
       },
       NO_CACHE_FOLDER,
+      "file://webapp/manifest.json",
+      undefined,
       FRAMEWORK,
       undefined,
       true
@@ -94,6 +98,8 @@ describe("the UI5 language assistant ui5 model", () => {
       it("caches the model the first time getSemanticModel is called", async () => {
         const ui5Model = await getSemanticModel(
           cachePath,
+          "file://webapp/manifest.json",
+          undefined,
           FRAMEWORK,
           undefined,
           true
@@ -114,6 +120,8 @@ describe("the UI5 language assistant ui5 model", () => {
             );
           },
           cachePath,
+          "file://webapp/manifest.json",
+          undefined,
           FRAMEWORK,
           undefined,
           true
@@ -150,6 +158,8 @@ describe("the UI5 language assistant ui5 model", () => {
 
         const ui5Model = await getSemanticModel(
           cachePath,
+          "file://webapp/manifest.json",
+          undefined,
           FRAMEWORK,
           undefined
         );
@@ -169,6 +179,8 @@ describe("the UI5 language assistant ui5 model", () => {
 
         const ui5Model = await getSemanticModel(
           cachePath,
+          "file://webapp/manifest.json",
+          undefined,
           FRAMEWORK,
           undefined,
           true
@@ -194,6 +206,8 @@ describe("the UI5 language assistant ui5 model", () => {
       it("does not cache the model", async () => {
         const ui5Model = await getSemanticModel(
           cachePath,
+          "file://webapp/manifest.json",
+          undefined,
           FRAMEWORK,
           undefined,
           true
@@ -214,6 +228,8 @@ describe("the UI5 language assistant ui5 model", () => {
             };
           },
           cachePath,
+          "file://webapp/manifest.json",
+          undefined,
           FRAMEWORK,
           undefined,
           true

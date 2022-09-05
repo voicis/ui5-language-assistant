@@ -1,5 +1,6 @@
 /* istanbul ignore file */
 import { forEach } from "lodash";
+import { join } from "path";
 import {
   createConnection,
   TextDocuments,
@@ -23,7 +24,7 @@ import {
 } from "@ui5-language-assistant/settings";
 import { commands } from "@ui5-language-assistant/user-facing-text";
 import { ServerInitializationOptions } from "../api";
-import { getSemanticModel } from "./ui5-model";
+import { getSemanticModel, invalidateCache } from "./ui5-model";
 import { getCompletionItems } from "./completion-items";
 import { getXMLViewDiagnostics } from "./xml-view-diagnostics";
 import { getHoverResponse } from "./hover";
@@ -33,6 +34,7 @@ import {
   isManifestDoc,
   initializeManifestData,
   updateManifestData,
+  getManifestDetails,
 } from "./manifest-handling";
 import {
   getUI5FrameworkForXMLFile,
@@ -122,11 +124,12 @@ connection.onCompletion(
       const documentPath = URI.parse(documentUri).fsPath;
       const minUI5Version = getMinUI5VersionForXMLFile(documentPath);
       const framework = getUI5FrameworkForXMLFile(documentPath);
-      const cachePath = textDocumentPosition.textDocument.uri.split(
-        "webapp"
-      )[0];
+      const cacheKey = textDocumentPosition.textDocument.uri.split("webapp")[0];
+      const manifest = getManifestDetails(documentPath);
       const model = await getSemanticModel(
-        cachePath,
+        initializationOptions?.modelCachePath,
+        cacheKey,
+        manifest,
         framework,
         minUI5Version,
         false
@@ -170,11 +173,12 @@ connection.onHover(
       const documentPath = URI.parse(documentUri).fsPath;
       const minUI5Version = getMinUI5VersionForXMLFile(documentPath);
       const framework = getUI5FrameworkForXMLFile(documentPath);
-      const cachePath = textDocumentPosition.textDocument.uri.split(
-        "webapp"
-      )[0];
+      const manifest = getManifestDetails(documentPath);
+      const cacheKey = textDocumentPosition.textDocument.uri.split("webapp")[0];
       const ui5Model = await getSemanticModel(
-        cachePath,
+        initializationOptions?.modelCachePath,
+        cacheKey,
+        manifest,
         framework,
         minUI5Version
       );
@@ -203,8 +207,14 @@ connection.onDidChangeWatchedFiles(async (changeEvent) => {
     const uri = change.uri;
     if (isManifestDoc(uri)) {
       await updateManifestData(uri, change.type);
+      const cacheKey = uri.split("webapp")[0];
+      invalidateCache(cacheKey);
     } else if (isUI5YamlDoc(uri)) {
       await updateUI5YamlData(uri, change.type);
+    } else {
+      const cacheKey = uri.split("webapp")[0];
+      await updateManifestData(join(cacheKey, "manifest.json"), change.type);
+      invalidateCache(cacheKey);
     }
   });
 });
@@ -227,9 +237,12 @@ documents.onDidChangeContent(async (changeEvent) => {
     const flexEnabled = getFlexEnabledFlagForXMLFile(documentPath);
     const minUI5Version = getMinUI5VersionForXMLFile(documentPath);
     const framework = getUI5FrameworkForXMLFile(documentPath);
-    const cachePath = changeEvent.document.uri.split("webapp")[0];
+    const manifest = getManifestDetails(documentPath);
+    const cacheKey = changeEvent.document.uri.split("webapp")[0];
     const ui5Model = await getSemanticModel(
-      cachePath,
+      initializationOptions?.modelCachePath,
+      cacheKey,
+      manifest,
       framework,
       minUI5Version
     );
@@ -260,8 +273,15 @@ connection.onCodeAction(async (params) => {
   const documentPath = URI.parse(docUri).fsPath;
   const minUI5Version = getMinUI5VersionForXMLFile(documentPath);
   const framework = getUI5FrameworkForXMLFile(documentPath);
-  const cachePath = params.textDocument.uri.split("webapp")[0];
-  const ui5Model = await getSemanticModel(cachePath, framework, minUI5Version);
+  const manifest = getManifestDetails(documentPath);
+  const cacheKey = params.textDocument.uri.split("webapp")[0];
+  const ui5Model = await getSemanticModel(
+    initializationOptions?.modelCachePath,
+    cacheKey,
+    manifest,
+    framework,
+    minUI5Version
+  );
   connection.sendNotification("UI5LanguageAssistant/ui5Model", {
     url: getCDNBaseUrl(framework, ui5Model.version),
     framework,

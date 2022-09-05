@@ -1,4 +1,5 @@
-import { dirname } from "path";
+import { dirname, join, normalize } from "path";
+import { fileURLToPath } from "url";
 import { maxBy, map, filter } from "lodash";
 import { readFile } from "fs-extra";
 import { URI } from "vscode-uri";
@@ -7,10 +8,16 @@ import { FileChangeType } from "vscode-languageserver";
 import { getLogger } from "./logger";
 
 type AbsolutePath = string;
-type ManifestData = Record<
-  AbsolutePath,
-  { flexEnabled: boolean; minUI5Version: string }
->;
+type ManifestData = Record<AbsolutePath, ManifestDetails>;
+
+export type ManifestDetails = {
+  flexEnabled: boolean;
+  minUI5Version: string;
+  metadataFile: string | undefined;
+  annotationFiles: string[];
+  customViews: { [name: string]: { entitySet: string } };
+};
+
 const manifestData: ManifestData = Object.create(null);
 
 export function isManifestDoc(uri: string): boolean {
@@ -35,6 +42,26 @@ export async function initializeManifestData(
 
   getLogger().info("manifest data initialized", { manifestDocuments });
   return Promise.all(readManifestPromises);
+}
+
+export function getManifestDetails(
+  xmlPath: string
+): ManifestDetails | undefined {
+  const manifestFilesForCurrentFolder = filter(
+    Object.keys(manifestData),
+    (manifestPath) => xmlPath.startsWith(dirname(manifestPath))
+  );
+
+  const closestManifestPath = maxBy(
+    manifestFilesForCurrentFolder,
+    (manifestPath) => manifestPath.length
+  );
+
+  if (closestManifestPath === undefined) {
+    return undefined;
+  }
+
+  return manifestData[closestManifestPath];
 }
 
 export function getFlexEnabledFlagForXMLFile(xmlPath: string): boolean {
@@ -120,11 +147,9 @@ async function findAllManifestDocumentsInWorkspace(
 
 async function readManifestFile(
   manifestUri: string
-): Promise<{ flexEnabled: boolean; minUI5Version: string } | "INVALID"> {
-  const manifestContent = await readFile(
-    URI.parse(manifestUri).fsPath,
-    "utf-8"
-  );
+): Promise<ManifestDetails | "INVALID"> {
+  const manifestPath = URI.parse(manifestUri).fsPath;
+  const manifestContent = await readFile(manifestPath, "utf-8");
 
   let manifestJsonObject;
   try {
@@ -136,6 +161,60 @@ async function readManifestFile(
   const flexEnabled = manifestJsonObject["sap.ui5"]?.flexEnabled;
   const minUI5Version =
     manifestJsonObject["sap.ui5"]?.dependencies?.minUI5Version;
+  const customViews = {};
 
-  return { flexEnabled: flexEnabled, minUI5Version: minUI5Version };
+  const modelDataSource =
+    manifestJsonObject["sap.ui5"]?.models?.[""]?.dataSource;
+  const dataSources = manifestJsonObject["sap.app"]?.dataSources;
+
+  let metadataContent: string | undefined;
+  let annotationContent: string[] = [];
+  if (dataSources) {
+    const defaultModelDataSource = dataSources[modelDataSource];
+    const localUri = defaultModelDataSource?.settings?.localUri;
+    if (localUri) {
+      const metadataPath = normalize(join(manifestPath, "..", localUri));
+      metadataContent = await readFile(metadataPath, {
+        encoding: "utf8",
+      });
+    }
+
+    const annotationFilePaths = (
+      defaultModelDataSource?.settings?.annotations ?? []
+    )
+      .map((name) => dataSources[name]?.settings?.localUri)
+      .filter((path) => !!path);
+    if (annotationFilePaths.length) {
+      annotationContent = await Promise.all(
+        annotationFilePaths.map((path) =>
+          readFile(normalize(join(manifestPath, "..", path)), {
+            encoding: "utf8",
+          })
+        )
+      );
+    }
+  }
+
+  const targets = manifestJsonObject["sap.ui5"]?.routing?.targets;
+  if (targets) {
+    for (const name of Object.keys(targets)) {
+      const target = targets[name];
+      if (target) {
+        const settings = target?.options?.settings;
+        if (settings.entitySet && settings.viewName) {
+          customViews[settings.viewName] = {
+            entitySet: settings.entitySet,
+          };
+        }
+      }
+    }
+  }
+
+  return {
+    flexEnabled: flexEnabled,
+    minUI5Version: minUI5Version,
+    annotationFiles: annotationContent,
+    metadataFile: metadataContent,
+    customViews,
+  };
 }
