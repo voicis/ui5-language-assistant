@@ -82,6 +82,7 @@ function createLanguageClient(context: ExtensionContext): LanguageClient {
       fileEvents: [
         workspace.createFileSystemWatcher("**/manifest.json"),
         workspace.createFileSystemWatcher("**/ui5.yaml"),
+        workspace.createFileSystemWatcher("**/*.xml"),
       ],
     },
     outputChannelName: meta.displayName,

@@ -71,26 +71,13 @@ export function convertToSemanticModel(
     model
   );
 
-  const targets = manifest?.data?.["sap.ui5"]?.routing?.targets;
-  if (targets) {
-    for (const name of Object.keys(targets)) {
-      const target = targets[name];
-      if (target) {
-        const settings = target?.options?.settings;
-        if (settings.entitySet && settings.viewName) {
-          model.customViews[settings.viewName] = {
-            entitySet: settings.entitySet,
-          };
-        }
-      }
-    }
-  }
+  model.customViews = manifest?.customViews ?? {};
 
   // read annotations
 
-  if (manifest?.metadataContent) {
-    const myParsedEdmx = parser.parse(manifest.metadataContent);
-    const annotations = manifest.annotationContent.map(parser.parse);
+  if (manifest?.metadataFile) {
+    const myParsedEdmx = parser.parse(manifest.metadataFile);
+    const annotations = manifest.annotationFiles.map(parser.parse);
     const mergedModel = parser.merge(myParsedEdmx, ...annotations);
 
     model.annotations = Object.keys(mergedModel._annotations).reduce(

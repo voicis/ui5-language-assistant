@@ -32,9 +32,12 @@ import {
   getVersionInfoUrl,
   getVersionJsonUrl,
 } from "./ui5-helper";
+import { ManifestDetails } from "./manifest-handling";
 
 export async function getSemanticModel(
   modelCachePath: string | undefined,
+  cacheKey: string,
+  manifestDetails: ManifestDetails | undefined,
   framework: UI5Framework,
   version: string | undefined,
   ignoreCache?: boolean
@@ -42,6 +45,8 @@ export async function getSemanticModel(
   return getSemanticModelWithFetcher(
     fetch,
     modelCachePath,
+    cacheKey,
+    manifestDetails,
     framework,
     version,
     ignoreCache
@@ -57,15 +62,18 @@ const semanticModelCache: Record<
 export async function getSemanticModelWithFetcher(
   fetcher: Fetcher,
   modelCachePath: string | undefined,
+  cacheKey: string,
+  manifestDetails: ManifestDetails | undefined,
   framework: UI5Framework,
   version: string | undefined,
   ignoreCache?: boolean
 ): Promise<UI5SemanticModel> {
-  const cacheKey = `${framework || "INVALID"}:${version || "INVALID"}`;
+  const frameWorkCacheKey = `${framework || "INVALID"}:${version || "INVALID"}`;
   if (ignoreCache || semanticModelCache[cacheKey] === undefined) {
     semanticModelCache[cacheKey] = createSemanticModelWithFetcher(
       fetcher,
       modelCachePath,
+      manifestDetails,
       framework,
       version
     );
@@ -73,10 +81,15 @@ export async function getSemanticModelWithFetcher(
   return semanticModelCache[cacheKey];
 }
 
+export function invalidateCache(cacheKey: string): void {
+  delete semanticModelCache[cacheKey];
+}
+
 // This function is exported for testing purposes (using a mock fetcher)
 async function createSemanticModelWithFetcher(
   fetcher: Fetcher,
   modelCachePath: string | undefined,
+  manifestDetails: ManifestDetails | undefined,
   framework: UI5Framework,
   version: string | undefined
 ): Promise<UI5SemanticModel> {
@@ -147,83 +160,14 @@ async function createSemanticModelWithFetcher(
     })
   );
   // Enhance with FE and annotation data
-  if (modelCachePath && modelCachePath.startsWith("file://")) {
-    const path = fileURLToPath(modelCachePath);
-    const manifestPath = (await globby([`${path}webapp/manifest.json`]))?.pop();
-    if (manifestPath) {
-      getLogger().info(`Reading ${manifestPath}`);
-      const manifestContent = await readFile(manifestPath, {
-        encoding: "utf8",
-      });
-      manifest = {
-        path: manifestPath,
-        data: JSON.parse(manifestContent),
-        sourceFiles: [],
-      };
-      const modelDataSource =
-        manifest?.data?.["sap.ui5"]?.models?.[""]?.dataSource;
-      const dataSources = manifest?.data?.["sap.app"]?.dataSources;
-      if (dataSources) {
-        const defaultModelDataSource = dataSources[modelDataSource];
-        const localUri = defaultModelDataSource?.settings?.localUri;
-        if (localUri) {
-          const metadataPath = normalize(join(manifest.path, "..", localUri));
-          manifest.metadataContent = await readFile(metadataPath, {
-            encoding: "utf8",
-          });
-        }
-        const annotationFilePaths = (
-          defaultModelDataSource?.settings?.annotations ?? []
-        )
-          .map((name) => dataSources[name]?.settings?.localUri)
-          .filter((path) => !!path);
-        if (annotationFilePaths.length) {
-          manifest.annotationContent = await Promise.all(
-            annotationFilePaths.map((path) =>
-              readFile(normalize(join(manifest.path, "..", path)), {
-                encoding: "utf8",
-              })
-            )
-          );
-        } else {
-          manifest.annotationContent = [];
-        }
-      }
-
-      const targets = manifest?.data?.["sap.ui5"]?.routing?.targets;
-      const namespace = manifest?.data?.["sap.app"]?.id;
-      if (targets && namespace) {
-        for (const name of Object.keys(targets)) {
-          const target = targets[name];
-          if (target) {
-            const settings = target?.options?.settings;
-            if (settings.viewName) {
-              const controllerName = settings.viewName
-                .replace(namespace, "webapp")
-                .split(".");
-              const pathToController = fileURLToPath(
-                modelCachePath + join(...controllerName)
-              );
-              const controllerFile = await readControllerFile(pathToController);
-              if (controllerFile) {
-                manifest.sourceFiles.push({
-                  ...controllerFile,
-                  viewName: settings.viewName,
-                });
-              }
-            }
-          }
-        }
-      }
-    }
-  }
+  manifestDetails;
 
   return generate({
     version: version,
     libraries: jsonMap,
     typeNameFix: getTypeNameFix(),
     strict: false,
-    manifest,
+    manifest: manifestDetails,
     printValidationErrors: false,
   });
 }
@@ -488,30 +432,4 @@ export async function negotiateVersionWithFetcher(
     }
   }
   return version;
-}
-
-async function readControllerFile(
-  path: string
-): Promise<{ content: string; uri: string } | undefined> {
-  try {
-    const pathWithExtension = path + ".controller.ts";
-    const content = await readFile(pathWithExtension, { encoding: "utf8" });
-    const uri = pathToFileURL(pathWithExtension).toString();
-    return {
-      content,
-      uri,
-    };
-  } catch (error) {
-    try {
-      const pathWithExtension = path + ".controller.js";
-      const content = await readFile(pathWithExtension, { encoding: "utf8" });
-      const uri = pathToFileURL(pathWithExtension).toString();
-      return {
-        content,
-        uri,
-      };
-    } catch (error2) {
-      return undefined;
-    }
-  }
 }
