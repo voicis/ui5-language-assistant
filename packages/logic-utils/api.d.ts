@@ -262,3 +262,43 @@ export function isSameXMLNSFromPrefix(
   prefix2: string | undefined,
   xmlElement2: XMLElement
 ): boolean;
+
+/**
+ * Searches for top-most parent XMLElement
+ * @param element
+ */
+export function getRootElement(element: XMLElement): XMLElement;
+
+/**
+ * Returns XML element attribute value
+ * @param element - current element
+ * @param attributeName - attribute name
+ */
+export function getElementAttributeValue(
+  element: XMLElement,
+  attributeName: string
+): string | null | undefined;
+
+/**
+ * Searches for controllerName attribute in the root XML element above the current
+ * and returns entitySet name defined in custom view referenced by controllerName
+ * @param element - current element
+ * @param context - context object
+ */
+export function getEntitySetFromController(
+  element: XMLElement,
+  context: any
+): string | undefined;
+
+export function filterAnnotationsForControl(
+  control: string,
+  annotations: any[]
+): any[];
+
+/**
+ * Returns allowed annotation terms for XML element representing UI control
+ * @param controlName - element name
+ */
+export function getAllowedAnnotationsTermsForControl(
+  controlName: string
+): string[];

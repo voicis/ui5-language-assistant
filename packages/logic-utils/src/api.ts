@@ -35,3 +35,10 @@ export {
   isSameXMLNS,
   isSameXMLNSFromPrefix,
 } from "./utils/xml-namespaces";
+export {
+  getRootElement,
+  getElementAttributeValue,
+  getEntitySetFromController,
+  filterAnnotationsForControl,
+  getAllowedAnnotationsTermsForControl,
+} from "./utils/annotations";

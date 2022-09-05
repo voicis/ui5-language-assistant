@@ -65,6 +65,9 @@ function validationIssuesToLspDiagnostics(
       case "UnknownTagName":
       case "InvalidAggregationCardinality":
       case "UnknownAnnotationPath":
+      case "AnnotationPathRequired":
+      case "PathDoesNotExist":
+      case "InvalidAnnotationTerm":
       case "InvalidAggregationType":
         return {
           ...commonDiagnosticPros,

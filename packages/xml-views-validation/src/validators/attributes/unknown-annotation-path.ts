@@ -1,14 +1,19 @@
 import { XMLAttribute, XMLElement } from "@xml-tools/ast";
 import { UI5SemanticModel } from "@ui5-language-assistant/semantic-model-types";
-import { getUI5PropertyByXMLAttributeKey } from "@ui5-language-assistant/logic-utils";
-import { find, map } from "lodash";
-import { UnknownEnumValueIssue } from "../../../api";
+import {
+  filterAnnotationsForControl,
+  getAllowedAnnotationsTermsForControl,
+  getElementAttributeValue,
+  getEntitySetFromController,
+  getUI5PropertyByXMLAttributeKey,
+} from "@ui5-language-assistant/logic-utils";
+import { AnnotationIssue } from "../../../api";
 import { isPossibleBindingAttributeValue } from "../../utils/is-binding-attribute-value";
 
 export function validateUnknownAnnotationPath(
   attribute: XMLAttribute,
   model: UI5SemanticModel
-): UnknownEnumValueIssue[] {
+): AnnotationIssue[] {
   const actualAttributeValue = attribute.value;
   const actualAttributeValueToken = attribute.syntax.value;
   if (
@@ -26,49 +31,99 @@ export function validateUnknownAnnotationPath(
     ui5Property.name === "metaPath"
   ) {
     const element = attribute.parent;
-    const controllerName = getRootElement(element).attributes.find(
-      (attribute) => attribute.key === "controllerName"
-    )?.value;
-    if (controllerName) {
-      const entitySet = model.customViews[controllerName]?.entitySet;
-      if (entitySet) {
-        const annotationList = model.annotations.find(
-          (annotationList) =>
-            annotationList.target.split(".").slice(-1)[0] === entitySet
-        )?.annotations;
-        if (annotationList) {
-          const filteredAnnotations = annotationList;
-          const match = filteredAnnotations.find((annotation) => {
-            const fullPath = annotation.qualifier
-              ? `${annotation.term}#${annotation.qualifier}`
-              : annotation.term;
-            const path = `@${fullPath}`;
-            return attribute.value === path;
-          });
-          if (!match) {
-            return [
-              {
-                kind: "UnknownEnumValue",
-                message: `Unknown annotation path: ${actualAttributeValueToken.image}`,
-                offsetRange: {
-                  start: actualAttributeValueToken.startOffset,
-                  end: actualAttributeValueToken.endOffset,
-                },
-                severity: "warn",
-              },
-            ];
-          }
-        }
+    let annotationList: any[] | undefined;
+    const contextPath = getElementAttributeValue(element, "contextPath");
+
+    let target = contextPath;
+    if (typeof contextPath === "string") {
+      annotationList = model.annotations.find(
+        (annotationList) => annotationList.target === contextPath
+      )?.annotations;
+    } else {
+      const entitySet = getEntitySetFromController(element, model);
+      target = entitySet;
+      annotationList = model.annotations.find(
+        (annotationList) =>
+          annotationList.target.split(".").slice(-1)[0] === entitySet
+      )?.annotations;
+    }
+
+    const controlName = element.name || "";
+    const filteredAnnotations = filterAnnotationsForControl(
+      controlName,
+      annotationList || []
+    );
+
+    const match = filteredAnnotations.find(
+      (annotation) => annotationToPath(annotation) === attribute.value
+    );
+    if (!match) {
+      if (!attribute.value) {
+        return [
+          {
+            kind: "AnnotationPathRequired",
+            message: "Annotation path is required",
+            offsetRange: {
+              start: actualAttributeValueToken.startOffset,
+              end: actualAttributeValueToken.endOffset,
+            },
+            severity: "warn",
+          },
+        ];
       }
+
+      const isAnnotationExists = (annotationList || []).find(
+        (annotation) => annotationToPath(annotation) === attribute.value
+      );
+      if (isAnnotationExists) {
+        // Wrong term or no suitable annotations for control
+        const issue = {
+          kind: "InvalidAnnotationTerm",
+          message: `Invalid term: ${actualAttributeValueToken.image}`,
+          offsetRange: {
+            start: actualAttributeValueToken.startOffset,
+            end: actualAttributeValueToken.endOffset,
+          },
+          severity: "warn",
+        } as AnnotationIssue;
+
+        if (filteredAnnotations.length) {
+          const expectedTerms = filteredAnnotations.map((annotation) =>
+            annotationToPath(annotation)
+          );
+          issue.message = `${issue.message}. Expected: ${expectedTerms.join(
+            ","
+          )}`;
+        } else {
+          issue.message = `${issue.message}. There are no suitable annotations in the project for the current metaPath`;
+        }
+
+        return [issue];
+      }
+
+      return [
+        {
+          kind: "PathDoesNotExist",
+          message: `Path does not exist: "${target}/${attribute.value}"`,
+          offsetRange: {
+            start: actualAttributeValueToken.startOffset,
+            end: actualAttributeValueToken.endOffset,
+          },
+          severity: "warn",
+        },
+      ];
     }
   }
+
   return [];
 }
 
-function getRootElement(element: XMLElement): XMLElement {
-  let current: XMLElement = element;
-  while (current.parent.type === "XMLElement") {
-    current = current.parent;
-  }
-  return current;
+function annotationToPath(annotation: {
+  term: string;
+  qualifier?: string;
+}): string {
+  const fullPath = annotation.qualifier
+    ? `${annotation.term}#${annotation.qualifier}`
+    : annotation.term;
+  return `@${fullPath}`;
 }

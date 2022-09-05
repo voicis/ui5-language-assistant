@@ -1,5 +1,9 @@
 import { XMLElement } from "@xml-tools/ast";
-import { getUI5PropertyByXMLAttributeKey } from "@ui5-language-assistant/logic-utils";
+import {
+  getElementAttributeValue,
+  getEntitySetFromController,
+  getUI5PropertyByXMLAttributeKey,
+} from "@ui5-language-assistant/logic-utils";
 import { AnnotationPathInXMLAttributeValueCompletion } from "../../../api";
 import { UI5AttributeValueCompletionOptions } from "./index";
 import { getRootElement } from "../utils/misc";
@@ -18,34 +22,40 @@ export function metaPathSuggestions({
     ui5Property?.library === "sap.fe.macros" &&
     ui5Property.name === "metaPath"
   ) {
-    const controllerName = getRootElement(element).attributes.find(
-      (attribute) => attribute.key === "controllerName"
-    )?.value;
-    if (controllerName) {
-      const entitySet = context.customViews[controllerName]?.entitySet;
-      if (entitySet) {
-        const annotationList = context.annotations.find(
-          (annotationList) =>
-            annotationList.target.split(".").slice(-1)[0] === entitySet
-        )?.annotations;
-        if (annotationList) {
-          const filteredAnnotations = annotationList;
-          return filteredAnnotations.map((annotation) => {
-            const fullPath = annotation.qualifier
-              ? `${annotation.term}#${annotation.qualifier}`
-              : annotation.term;
-            return {
-              type: "AnnotationPathInXMLAttributeValue",
-              astNode: attribute,
-              ui5Node: {
-                kind: "AnnotationPath",
-                name: `@${fullPath}`,
-                value: `@${fullPath}`,
-              },
-            };
-          });
-        }
-      }
+    let annotationList: any[] | undefined;
+    const contextPath = getElementAttributeValue(element, "contextPath");
+
+    if (typeof contextPath === "string") {
+      annotationList = context.annotations.find(
+        (annotationList) => annotationList.target === contextPath
+      )?.annotations;
+    } else {
+      const entitySet = getEntitySetFromController(element, context);
+      annotationList = context.annotations.find(
+        (annotationList) =>
+          annotationList.target.split(".").slice(-1)[0] === entitySet
+      )?.annotations;
+    }
+
+    if (annotationList?.length) {
+      const filteredAnnotations = filterAnnotations(
+        element.name || "",
+        annotationList
+      );
+      return filteredAnnotations.map((annotation) => {
+        const fullPath = annotation.qualifier
+          ? `${annotation.term}#${annotation.qualifier}`
+          : annotation.term;
+        return {
+          type: "AnnotationPathInXMLAttributeValue",
+          astNode: attribute,
+          ui5Node: {
+            kind: "AnnotationPath",
+            name: `@${fullPath}`,
+            value: `@${fullPath}`,
+          },
+        };
+      });
     }
   }
 

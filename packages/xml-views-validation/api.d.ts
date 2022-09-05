@@ -26,6 +26,12 @@ export type UseOfDeprecatedAttributeIssue =
   | UseOfDeprecatedEventIssue
   | UseOfDeprecatedAssociationIssue;
 
+export type AnnotationIssue =
+  | UnknownAnnotationPathIssue
+  | AnnotationPathRequiredIssue
+  | PathDoesNotExistIssue
+  | InvalidAnnotationTermIssue;
+
 export type UI5XMLViewIssue =
   | UnknownEnumValueIssue
   | UseOfDeprecatedClassIssue
@@ -41,7 +47,7 @@ export type UI5XMLViewIssue =
   | UnknownTagNameIssue
   | InvalidAggregationCardinalityIssue
   | InvalidAggregationTypeIssue
-  | UnknownAnnotationPathIssue;
+  | AnnotationIssue;
 
 // A sub-interface per issue type may seem redundant, but this allows
 // a sub-issue type to have additional properties (if needed) in the future.
@@ -52,6 +58,19 @@ export interface UnknownEnumValueIssue extends BaseUI5XMLViewIssue {
 export interface UnknownAnnotationPathIssue extends BaseUI5XMLViewIssue {
   kind: "UnknownAnnotationPath";
 }
+
+export interface AnnotationPathRequiredIssue extends BaseUI5XMLViewIssue {
+  kind: "AnnotationPathRequired";
+}
+
+export interface InvalidAnnotationTermIssue extends BaseUI5XMLViewIssue {
+  kind: "InvalidAnnotationTerm";
+}
+
+export interface PathDoesNotExistIssue extends BaseUI5XMLViewIssue {
+  kind: "PathDoesNotExist";
+}
+
 export interface UseOfDeprecatedClassIssue extends BaseUI5XMLViewIssue {
   kind: "UseOfDeprecatedClass";
 }
