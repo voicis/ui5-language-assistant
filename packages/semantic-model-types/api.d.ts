@@ -14,7 +14,7 @@ export interface UI5SemanticModel {
   // Likely Not Relevant for XML.Views
   functions: Record<string, UI5Function>;
   annotations: any[];
-  metadata: MetadataElement[];
+  metadata: Metadata;
   customViews: Record<
     string,
     {
