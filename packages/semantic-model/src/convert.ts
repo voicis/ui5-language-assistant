@@ -16,6 +16,7 @@ import * as apiJson from "./api-json";
 import { isLibraryFile } from "./validate";
 import { fixLibrary } from "./fix-api-json";
 import { error, hasProperty, newMap } from "./utils";
+import { convertMetadata } from "./convertMetadata";
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const parser = require("@sap-ux/edmx-parser");
@@ -38,7 +39,7 @@ export function convertToSemanticModel(
     interfaces: newMap(),
     annotations: [],
     customViews: newMap(),
-    metadata: [],
+    metadata: { actions: [], entitySets: [], entityTypes: [] },
   };
 
   // Convert to array (with deterministic order) to ensure consistency when inserting to maps
@@ -80,6 +81,7 @@ export function convertToSemanticModel(
     const annotations = manifest.annotationFiles.map(parser.parse);
     const mergedModel = parser.merge(myParsedEdmx, ...annotations);
 
+    // model.metadata = mergedModel;
     model.annotations = Object.keys(mergedModel._annotations).reduce(
       (acc, key) => {
         const value = mergedModel._annotations[key];
@@ -105,6 +107,8 @@ export function convertToSemanticModel(
       },
       [] as any[]
     );
+
+    convertMetadata(model, mergedModel);
   }
 
   return model;
@@ -133,7 +137,7 @@ function convertLibraryToSemanticModel(
     namespaces: newMap(),
     typedefs: newMap(),
     annotations: [],
-    metadata: [],
+    metadata: { actions: [], entitySets: [], entityTypes: [] },
     customViews: {},
   };
   if (lib.symbols === undefined) {

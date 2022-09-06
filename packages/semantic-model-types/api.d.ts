@@ -63,7 +63,7 @@ export interface MetadataElementBase {
 
 export interface MetadataEntityType extends MetadataElementBase {
   kind: typeof METADATA_ENTITY_TYPE_KIND;
-  properties: (MetadataElementBase & {
+  entityProperties: (MetadataElementBase & {
     kind: typeof METADATA_ENTITY_PROPERTY_KIND;
     type: string; // property Edm type
   })[];
@@ -93,7 +93,7 @@ export interface MetadataAction extends MetadataElementBase {
 }
 export interface Metadata {
   actions: MetadataAction[];
-  entityContainer: MetadataElementBase & {
+  entityContainer?: MetadataElementBase & {
     kind: typeof METADATA_ENTITY_CONTAINER_KIND;
   };
   entitySets: MetadataEntitySet[];
