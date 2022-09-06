@@ -22,8 +22,18 @@ export function getAllowedAnnotationsTermsForControl(
     case "FilterBar": {
       return ["com.sap.vocabularies.UI.v1.SelectionFields"];
     }
+    case "MicroChart":
     case "Chart": {
       return ["com.sap.vocabularies.UI.v1.Chart"];
+    }
+    case "Form": {
+      return ["com.sap.vocabularies.UI.v1.FieldGroup"];
+    }
+    case "Table": {
+      return [
+        "com.sap.vocabularies.UI.v1.LineItem",
+        "com.sap.vocabularies.UI.v1.PresentationVariant",
+      ];
     }
   }
   return [];
