@@ -26,6 +26,12 @@ export function getAllowedAnnotationsTermsForControl(
     case "Chart": {
       return ["com.sap.vocabularies.UI.v1.Chart"];
     }
+    case "Field": {
+      return [
+        "com.sap.vocabularies.UI.v1.DataField",
+        "com.sap.vocabularies.UI.v1.DataPoint",
+      ];
+    }
     case "Form": {
       return ["com.sap.vocabularies.UI.v1.FieldGroup"];
     }

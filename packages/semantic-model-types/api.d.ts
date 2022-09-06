@@ -14,7 +14,7 @@ export interface UI5SemanticModel {
   // Likely Not Relevant for XML.Views
   functions: Record<string, UI5Function>;
   annotations: any[];
-  metadata: MetadataElement[];
+  metadata: Metadata;
   customViews: Record<
     string,
     {
@@ -44,6 +44,60 @@ export interface MetadataElement {
   name: string;
   path: string;
   children: MetadataElement[];
+}
+
+export const METADATA_ENTITY_CONTAINER_KIND = "EntityContainer";
+export const METADATA_ENTITY_TYPE_KIND = "EntityType";
+export const METADATA_ENTITY_SET_KIND = "EntitySet";
+export const METADATA_ENTITY_PROPERTY_KIND = "Property";
+export const METADATA_ENTITY_NAVIGATION_PROPERTY_KIND = "NavigationProperty";
+export const METADATA_ACTION_KIND = "Action";
+export const METADATA_ACTION_PARAMETER_KIND = "ActionParameter";
+export const METADATA_ACTION_IMPORT_KIND = "ActionImport";
+
+export interface MetadataElementBase {
+  fullyQualifiedName: string;
+  name: string;
+  kind: string; // internal semantic type to identify metadata element
+}
+
+export interface MetadataEntityType extends MetadataElementBase {
+  kind: typeof METADATA_ENTITY_TYPE_KIND;
+  properties: (MetadataElementBase & {
+    kind: typeof METADATA_ENTITY_PROPERTY_KIND;
+    type: string; // property Edm type
+  })[];
+  navigationProperties: (MetadataElementBase & {
+    kind: typeof METADATA_ENTITY_NAVIGATION_PROPERTY_KIND;
+    isCollection: boolean;
+    targetTypeName: string;
+  })[];
+}
+
+export interface MetadataEntitySet extends MetadataElementBase {
+  kind: typeof METADATA_ENTITY_SET_KIND;
+  entityTypeName: string;
+  navigationPropertyBinding: { [name: string]: MetadataEntitySet };
+}
+
+export interface MetadataActionParameter extends MetadataElementBase {
+  kind: typeof METADATA_ACTION_PARAMETER_KIND;
+  isCollection: boolean;
+  type: string;
+}
+export interface MetadataAction extends MetadataElementBase {
+  kind: typeof METADATA_ACTION_KIND;
+  isBound: boolean;
+  isFunction: boolean;
+  parameters?: MetadataActionParameter[];
+}
+export interface Metadata {
+  actions: MetadataAction[];
+  entityContainer: MetadataElementBase & {
+    kind: typeof METADATA_ENTITY_CONTAINER_KIND;
+  };
+  entitySets: MetadataEntitySet[];
+  entityTypes: MetadataEntityType[];
 }
 
 export interface UI5Meta {

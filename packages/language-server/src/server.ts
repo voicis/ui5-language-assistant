@@ -213,7 +213,10 @@ connection.onDidChangeWatchedFiles(async (changeEvent) => {
       await updateUI5YamlData(uri, change.type);
     } else {
       const cacheKey = uri.split("webapp")[0];
-      await updateManifestData(join(cacheKey, "manifest.json"), change.type);
+      await updateManifestData(
+        join(cacheKey, "webapp", "manifest.json"),
+        change.type
+      );
       invalidateCache(cacheKey);
     }
   });

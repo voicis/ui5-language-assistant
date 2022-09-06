@@ -1,5 +1,5 @@
 import { dirname, join, normalize } from "path";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
 import { maxBy, map, filter } from "lodash";
 import { readFile } from "fs-extra";
 import { URI } from "vscode-uri";
@@ -111,7 +111,7 @@ export async function updateManifestData(
     manifestUri,
     changeType,
   });
-  const manifestPath = URI.parse(manifestUri).fsPath;
+  const manifestPath = fileURLToPath(manifestUri);
   switch (changeType) {
     case 1: //created
     case 2: {
@@ -148,7 +148,10 @@ async function findAllManifestDocumentsInWorkspace(
 async function readManifestFile(
   manifestUri: string
 ): Promise<ManifestDetails | "INVALID"> {
-  const manifestPath = URI.parse(manifestUri).fsPath;
+  const manifestURL = manifestUri.startsWith("file:")
+    ? manifestUri
+    : pathToFileURL(manifestUri).toString();
+  const manifestPath = fileURLToPath(manifestURL);
   const manifestContent = await readFile(manifestPath, "utf-8");
 
   let manifestJsonObject;
