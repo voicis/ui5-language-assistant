@@ -41,12 +41,14 @@ export type UI5CompletionNode =
   | UI5EnumValue
   | BooleanValue
   | AnnotationPathValue
-  | AnnotationTargetValue;
+  | AnnotationTargetValue
+  | PropertyPathValue;
 
 export type UI5XMLViewCompletion =
   | UI5NodeXMLViewCompletion
   | AnnotationPathInXMLAttributeValueCompletion
   | AnnotationTargetInXMLAttributeValueCompletion
+  | PropertyPathInXMLAttributeValueCompletion
   | BooleanValueInXMLAttributeValueCompletion;
 
 export type UI5NodeXMLViewCompletion =
@@ -70,7 +72,8 @@ export type UI5XMLViewCompletionTypeName =
   | "UI5NamespacesInXMLAttributeValue"
   | "BooleanValueInXMLAttributeValue"
   | "AnnotationPathInXMLAttributeValue"
-  | "AnnotationTargetInXMLAttributeValue";
+  | "AnnotationTargetInXMLAttributeValue"
+  | "PropertyPathInXMLAttributeValue";
 
 /**
  * Note that this interface does not deal with "Editor Behavior". e.g:
@@ -156,6 +159,12 @@ export interface AnnotationPathValue {
   value: string;
 }
 
+export interface PropertyPathValue {
+  kind: "PropertyPath";
+  name: string;
+  value: string;
+}
+
 export interface AnnotationTargetValue {
   kind: "AnnotationTarget";
   name: string;
@@ -164,6 +173,11 @@ export interface AnnotationTargetValue {
 export interface AnnotationPathInXMLAttributeValueCompletion
   extends BaseXMLViewCompletion<XMLAttribute, AnnotationPathValue> {
   type: "AnnotationPathInXMLAttributeValue";
+}
+
+export interface PropertyPathInXMLAttributeValueCompletion
+  extends BaseXMLViewCompletion<XMLAttribute, PropertyPathValue> {
+  type: "PropertyPathInXMLAttributeValue";
 }
 
 export interface AnnotationTargetInXMLAttributeValueCompletion

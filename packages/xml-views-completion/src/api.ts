@@ -90,6 +90,9 @@ export function isUI5NodeXMLViewCompletion(
     case "AnnotationPathInXMLAttributeValue": {
       return false;
     }
+    case "PropertyPathInXMLAttributeValue": {
+      return false;
+    }
     case "AnnotationTargetInXMLAttributeValue": {
       return false;
     }

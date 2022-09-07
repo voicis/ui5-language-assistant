@@ -41,4 +41,8 @@ export {
   getEntitySetFromController,
   filterAnnotationsForControl,
   getAllowedAnnotationsTermsForControl,
+  getEntityTypeForEntitySet,
+  resolveMetadataElementName,
 } from "./utils/annotations";
+
+export type { MetadataElementNameResolutionResult } from "./utils/annotations";

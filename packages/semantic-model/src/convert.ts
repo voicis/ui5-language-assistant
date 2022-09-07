@@ -39,7 +39,13 @@ export function convertToSemanticModel(
     interfaces: newMap(),
     annotations: [],
     customViews: newMap(),
-    metadata: { actions: [], entitySets: [], entityTypes: [] },
+    metadata: {
+      actions: [],
+      entitySets: [],
+      entityTypes: [],
+      namespace: "",
+      namespaceAlias: "",
+    },
   };
 
   // Convert to array (with deterministic order) to ensure consistency when inserting to maps
@@ -137,7 +143,13 @@ function convertLibraryToSemanticModel(
     namespaces: newMap(),
     typedefs: newMap(),
     annotations: [],
-    metadata: { actions: [], entitySets: [], entityTypes: [] },
+    metadata: {
+      actions: [],
+      entitySets: [],
+      entityTypes: [],
+      namespace: "",
+      namespaceAlias: "",
+    },
     customViews: {},
   };
   if (lib.symbols === undefined) {

@@ -23,6 +23,8 @@ interface ExpectedMergedModel<
   _entityContainer: B;
   _entitySets: S[];
   _entityTypes: T[];
+  _namespace: string;
+  _references: { uri: string; alias: string; namespace: string }[];
 }
 
 function convertMetadataEntitySet<S extends MetadataEntitySet>(
@@ -107,4 +109,8 @@ export function convertMetadata<
   semanticModel.metadata.entityTypes = mergedModel._entityTypes.map((type) =>
     convertMetadataEntityType(type)
   );
+  semanticModel.metadata.namespace = mergedModel._namespace;
+  semanticModel.metadata.namespaceAlias = mergedModel._references.find(
+    (r) => r.namespace === mergedModel._namespace
+  )?.alias;
 }

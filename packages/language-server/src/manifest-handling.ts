@@ -2,7 +2,6 @@ import { dirname, join, normalize } from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { maxBy, map, filter } from "lodash";
 import { readFile } from "fs-extra";
-import { URI } from "vscode-uri";
 import globby from "globby";
 import { FileChangeType } from "vscode-languageserver";
 import { getLogger } from "./logger";

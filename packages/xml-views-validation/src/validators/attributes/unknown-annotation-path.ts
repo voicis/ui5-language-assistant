@@ -1,11 +1,12 @@
-import { XMLAttribute, XMLElement } from "@xml-tools/ast";
+import { XMLAttribute } from "@xml-tools/ast";
 import { UI5SemanticModel } from "@ui5-language-assistant/semantic-model-types";
 import {
   filterAnnotationsForControl,
-  getAllowedAnnotationsTermsForControl,
   getElementAttributeValue,
   getEntitySetFromController,
   getUI5PropertyByXMLAttributeKey,
+  getEntityTypeForEntitySet,
+  resolveMetadataElementName,
 } from "@ui5-language-assistant/logic-utils";
 import { AnnotationIssue } from "../../../api";
 import { isPossibleBindingAttributeValue } from "../../utils/is-binding-attribute-value";
@@ -25,7 +26,6 @@ export function validateUnknownAnnotationPath(
   }
 
   const ui5Property = getUI5PropertyByXMLAttributeKey(attribute, model);
-  const propType = ui5Property?.type;
   if (
     ui5Property?.library === "sap.fe.macros" &&
     ui5Property.name === "metaPath"
@@ -36,16 +36,12 @@ export function validateUnknownAnnotationPath(
 
     let target = contextPath;
     if (typeof contextPath === "string") {
-      annotationList = model.annotations.find(
-        (annotationList) => annotationList.target === contextPath
-      )?.annotations;
+      annotationList = collectAnnotationsForTarget(model, contextPath);
     } else {
-      const entitySet = getEntitySetFromController(element, model);
-      target = entitySet;
-      annotationList = model.annotations.find(
-        (annotationList) =>
-          annotationList.target.split(".").slice(-1)[0] === entitySet
-      )?.annotations;
+      const entitySet = getEntitySetFromController(element, model) || "";
+      target =
+        getEntityTypeForEntitySet(model.metadata, entitySet)?.name || entitySet;
+      annotationList = collectAnnotationsForTarget(model, target);
     }
 
     const controlName = element.name || "";
@@ -72,6 +68,25 @@ export function validateUnknownAnnotationPath(
         ];
       }
 
+      if (!(attribute.value || "").includes("@")) {
+        if (isPropertyPathAllowed(controlName)) {
+          // The value seem to be a property path, another validator takes care
+          return [];
+        } else {
+          return [
+            {
+              kind: "PropertyPathNotAllowed",
+              message: `Property path not allowed. Use code completion to select annotation path`,
+              offsetRange: {
+                start: actualAttributeValueToken.startOffset,
+                end: actualAttributeValueToken.endOffset,
+              },
+              severity: "warn",
+            },
+          ];
+        }
+      }
+
       const isAnnotationExists = (annotationList || []).find(
         (annotation) => annotationToPath(annotation) === attribute.value
       );
@@ -95,7 +110,7 @@ export function validateUnknownAnnotationPath(
             ","
           )}`;
         } else {
-          issue.message = `${issue.message}. There are no suitable annotations in the project for the current metaPath`;
+          issue.message = `${issue.message}. There are no annotations in the project that are suitable for the current element`;
         }
 
         return [issue];
@@ -126,4 +141,23 @@ function annotationToPath(annotation: {
     ? `${annotation.term}#${annotation.qualifier}`
     : annotation.term;
   return `@${fullPath}`;
+}
+
+function isPropertyPathAllowed(control: string): boolean {
+  return control === "Field";
+}
+
+function collectAnnotationsForTarget(model: UI5SemanticModel, target: string) {
+  const resolvedTarget = resolveMetadataElementName(model.metadata, target);
+  if (resolvedTarget.fqn) {
+    const allowedTargetNames = [resolvedTarget.fqn, resolvedTarget.aliasedName];
+    const annotationsForTarget = model.annotations.filter((annotationList) =>
+      allowedTargetNames.includes(annotationList.target)
+    );
+    return [].concat(
+      ...annotationsForTarget.map((entry) => entry.annotations || [])
+    );
+  } else {
+    return [];
+  }
 }

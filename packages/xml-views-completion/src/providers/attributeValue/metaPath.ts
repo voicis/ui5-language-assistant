@@ -1,12 +1,23 @@
-import { XMLElement } from "@xml-tools/ast";
 import {
+  filterAnnotationsForControl,
   getElementAttributeValue,
   getEntitySetFromController,
+  getEntityTypeForEntitySet,
   getUI5PropertyByXMLAttributeKey,
+  resolveMetadataElementName,
 } from "@ui5-language-assistant/logic-utils";
-import { AnnotationPathInXMLAttributeValueCompletion } from "../../../api";
+import {
+  AnnotationPathInXMLAttributeValueCompletion,
+  PropertyPathInXMLAttributeValueCompletion,
+} from "../../../api";
 import { UI5AttributeValueCompletionOptions } from "./index";
-import { getRootElement } from "../utils/misc";
+import {
+  EntityTypeFullyQualifiedName,
+  Metadata,
+  MetadataEntityType,
+  MetadataEntityTypeProperty,
+  UI5SemanticModel,
+} from "@ui5-language-assistant/semantic-model-types";
 
 /**
  * Suggests values for macros metaPath
@@ -15,7 +26,14 @@ export function metaPathSuggestions({
   element,
   attribute,
   context,
-}: UI5AttributeValueCompletionOptions): AnnotationPathInXMLAttributeValueCompletion[] {
+}: UI5AttributeValueCompletionOptions): (
+  | AnnotationPathInXMLAttributeValueCompletion
+  | PropertyPathInXMLAttributeValueCompletion
+)[] {
+  const result: (
+    | AnnotationPathInXMLAttributeValueCompletion
+    | PropertyPathInXMLAttributeValueCompletion
+  )[] = [];
   const ui5Property = getUI5PropertyByXMLAttributeKey(attribute, context);
 
   if (
@@ -24,39 +42,62 @@ export function metaPathSuggestions({
   ) {
     let annotationList: any[] | undefined;
     const contextPath = getElementAttributeValue(element, "contextPath");
+    const control = element.name || "";
 
+    let targetName: string;
     if (typeof contextPath === "string") {
-      annotationList = context.annotations.find(
-        (annotationList) => annotationList.target === contextPath
-      )?.annotations;
+      targetName = contextPath;
+      annotationList = collectAnnotationsForTarget(context, contextPath);
     } else {
-      const entitySet = getEntitySetFromController(element, context);
-      annotationList = context.annotations.find(
-        (annotationList) =>
-          annotationList.target.split(".").slice(-1)[0] === entitySet
-      )?.annotations;
+      const entitySet = getEntitySetFromController(element, context) || "";
+      targetName =
+        getEntityTypeForEntitySet(context.metadata, entitySet)?.name ||
+        entitySet;
+      annotationList = collectAnnotationsForTarget(context, targetName);
     }
 
+    // Entity type properties
+    // TODO: provide props from associated targets
+    if (isPropertyPathAllowed(control)) {
+      result.push(
+        ...getPropertyPathsForCompletion(context.metadata, targetName).map(
+          (property) =>
+            ({
+              type: "PropertyPathInXMLAttributeValue",
+              astNode: attribute,
+              ui5Node: {
+                kind: "PropertyPath",
+                name: property,
+                value: property,
+              },
+            } as PropertyPathInXMLAttributeValueCompletion)
+        )
+      );
+    }
+    // Annotation terms
     if (annotationList?.length) {
-      const filteredAnnotations = filterAnnotations(
-        element.name || "",
+      const filteredAnnotations = filterAnnotationsForControl(
+        control,
         annotationList
       );
-      return filteredAnnotations.map((annotation) => {
-        const fullPath = annotation.qualifier
-          ? `${annotation.term}#${annotation.qualifier}`
-          : annotation.term;
-        return {
-          type: "AnnotationPathInXMLAttributeValue",
-          astNode: attribute,
-          ui5Node: {
-            kind: "AnnotationPath",
-            name: `@${fullPath}`,
-            value: `@${fullPath}`,
-          },
-        };
-      });
+      result.push(
+        ...filteredAnnotations.map((annotation) => {
+          const fullPath = annotation.qualifier
+            ? `${annotation.term}#${annotation.qualifier}`
+            : annotation.term;
+          return {
+            type: "AnnotationPathInXMLAttributeValue",
+            astNode: attribute,
+            ui5Node: {
+              kind: "AnnotationPath",
+              name: `@${fullPath}`,
+              value: `@${fullPath}`,
+            },
+          } as AnnotationPathInXMLAttributeValueCompletion;
+        })
+      );
     }
+    return result;
   }
 
   // const prefix = prefix ?? "";
@@ -77,19 +118,32 @@ export function metaPathSuggestions({
   return [];
 }
 
-function filterAnnotations(control: string, annotations: any[]): any[] {
-  switch (control) {
-    case "FilterBar": {
-      return annotations.filter(
-        (annotation) =>
-          annotation.term === "com.sap.vocabularies.UI.v1.SelectionFields"
-      );
-    }
-    case "Chart": {
-      return annotations.filter(
-        (annotation) => annotation.term === "com.sap.vocabularies.UI.v1.Chart"
-      );
-    }
+function getPropertyPathsForCompletion(
+  metadata: Metadata,
+  targetName: EntityTypeFullyQualifiedName
+): string[] {
+  const resolvedName = resolveMetadataElementName(metadata, targetName);
+  const properties = metadata.entityTypes.find(
+    (entry) => entry.fullyQualifiedName === (resolvedName.fqn || targetName)
+  )?.entityProperties;
+  return (properties || []).map((property) => property.name);
+}
+
+function isPropertyPathAllowed(control: string): boolean {
+  return control === "Field";
+}
+
+function collectAnnotationsForTarget(model: UI5SemanticModel, target: string) {
+  const resolvedTarget = resolveMetadataElementName(model.metadata, target);
+  if (resolvedTarget.fqn) {
+    const allowedTargetNames = [resolvedTarget.fqn, resolvedTarget.aliasedName];
+    const annotationsForTarget = model.annotations.filter((annotationList) =>
+      allowedTargetNames.includes(annotationList.target)
+    );
+    return [].concat(
+      ...annotationsForTarget.map((entry) => entry.annotations || [])
+    );
+  } else {
+    return [];
   }
-  return [];
 }

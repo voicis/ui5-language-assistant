@@ -28,9 +28,13 @@ export type UseOfDeprecatedAttributeIssue =
 
 export type AnnotationIssue =
   | UnknownAnnotationPathIssue
+  | AnnotationTargetRequiredIssue
   | AnnotationPathRequiredIssue
   | PathDoesNotExistIssue
-  | InvalidAnnotationTermIssue;
+  | InvalidAnnotationTargetIssue
+  | InvalidAnnotationTermIssue
+  | PropertyPathNotAllowedIssue
+  | UnknownPropertyPathIssue;
 
 export type UI5XMLViewIssue =
   | UnknownEnumValueIssue
@@ -59,12 +63,28 @@ export interface UnknownAnnotationPathIssue extends BaseUI5XMLViewIssue {
   kind: "UnknownAnnotationPath";
 }
 
+export interface UnknownPropertyPathIssue extends BaseUI5XMLViewIssue {
+  kind: "UnknownPropertyPath";
+}
+
+export interface PropertyPathNotAllowedIssue extends BaseUI5XMLViewIssue {
+  kind: "PropertyPathNotAllowed";
+}
+
+export interface AnnotationTargetRequiredIssue extends BaseUI5XMLViewIssue {
+  kind: "AnnotationTargetRequired";
+}
+
 export interface AnnotationPathRequiredIssue extends BaseUI5XMLViewIssue {
   kind: "AnnotationPathRequired";
 }
 
 export interface InvalidAnnotationTermIssue extends BaseUI5XMLViewIssue {
   kind: "InvalidAnnotationTerm";
+}
+
+export interface InvalidAnnotationTargetIssue extends BaseUI5XMLViewIssue {
+  kind: "InvalidAnnotationTarget";
 }
 
 export interface PathDoesNotExistIssue extends BaseUI5XMLViewIssue {

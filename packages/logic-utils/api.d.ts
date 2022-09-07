@@ -10,7 +10,13 @@ import {
   UI5SemanticModel,
   UI5Type,
   UI5DeprecatedInfo,
+  Metadata,
+  EntityTypeFullyQualifiedName,
+  MetadataEntityTypeProperty,
+  EntitySetFullyQualifiedName,
+  MetadataEntityType,
 } from "@ui5-language-assistant/semantic-model-types";
+import { MetadataElementNameResolutionResult } from "./src/api";
 
 export interface OffsetRange {
   start: number;
@@ -302,3 +308,20 @@ export function filterAnnotationsForControl(
 export function getAllowedAnnotationsTermsForControl(
   controlName: string
 ): string[];
+
+/**
+ * Returns metadata entity type object for the given entity set name
+ * @param metadata
+ * @param entitySetName
+ */
+export function getEntityTypeForEntitySet(
+  metadata: Metadata,
+  entitySetName: EntitySetFullyQualifiedName
+): MetadataEntityType | undefined;
+
+export function resolveMetadataElementName(
+  metadata: Metadata,
+  name: string
+): MetadataElementNameResolutionResult;
+
+export type { MetadataElementNameResolutionResult } from "./src/api";

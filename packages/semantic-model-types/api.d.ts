@@ -55,26 +55,37 @@ export const METADATA_ACTION_KIND = "Action";
 export const METADATA_ACTION_PARAMETER_KIND = "ActionParameter";
 export const METADATA_ACTION_IMPORT_KIND = "ActionImport";
 
+export type EntityContainerFullyQualifiedName = string;
+export type EntityTypeFullyQualifiedName = string;
+export type EntitySetFullyQualifiedName = string;
+
 export interface MetadataElementBase {
   fullyQualifiedName: string;
   name: string;
   kind: string; // internal semantic type to identify metadata element
 }
 
+export interface MetadataEntityTypeProperty extends MetadataElementBase {
+  kind: typeof METADATA_ENTITY_PROPERTY_KIND;
+  type: string; // property Edm type
+}
+
+export interface MetadataEntityTypeNavigationProperty
+  extends MetadataElementBase {
+  kind: typeof METADATA_ENTITY_NAVIGATION_PROPERTY_KIND;
+  isCollection: boolean;
+  targetTypeName: string;
+}
+
 export interface MetadataEntityType extends MetadataElementBase {
+  fullyQualifiedName: EntityTypeFullyQualifiedName;
   kind: typeof METADATA_ENTITY_TYPE_KIND;
-  entityProperties: (MetadataElementBase & {
-    kind: typeof METADATA_ENTITY_PROPERTY_KIND;
-    type: string; // property Edm type
-  })[];
-  navigationProperties: (MetadataElementBase & {
-    kind: typeof METADATA_ENTITY_NAVIGATION_PROPERTY_KIND;
-    isCollection: boolean;
-    targetTypeName: string;
-  })[];
+  entityProperties: MetadataEntityTypeProperty[];
+  navigationProperties: MetadataEntityTypeNavigationProperty[];
 }
 
 export interface MetadataEntitySet extends MetadataElementBase {
+  fullyQualifiedName: EntitySetFullyQualifiedName;
   kind: typeof METADATA_ENTITY_SET_KIND;
   entityTypeName: string;
   navigationPropertyBinding: { [name: string]: MetadataEntitySet };
@@ -91,13 +102,17 @@ export interface MetadataAction extends MetadataElementBase {
   isFunction: boolean;
   parameters?: MetadataActionParameter[];
 }
+
 export interface Metadata {
   actions: MetadataAction[];
   entityContainer?: MetadataElementBase & {
+    fullyQualifiedName: EntityContainerFullyQualifiedName;
     kind: typeof METADATA_ENTITY_CONTAINER_KIND;
   };
   entitySets: MetadataEntitySet[];
   entityTypes: MetadataEntityType[];
+  namespace: string;
+  namespaceAlias?: string;
 }
 
 export interface UI5Meta {
