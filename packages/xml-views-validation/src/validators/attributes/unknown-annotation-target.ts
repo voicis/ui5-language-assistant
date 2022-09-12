@@ -1,9 +1,6 @@
-import { XMLAttribute, XMLElement } from "@xml-tools/ast";
+import { XMLAttribute } from "@xml-tools/ast";
 import {
   Metadata,
-  MetadataEntitySet,
-  MetadataEntityType,
-  METADATA_ENTITY_TYPE_KIND,
   UI5SemanticModel,
 } from "@ui5-language-assistant/semantic-model-types";
 import {
@@ -49,9 +46,10 @@ export function validateUnknownAnnotationTarget(
       ...new Set(
         allowedTargets
           .filter((t) => !!allowedTargetsMap[t])
-          .map(
-            (t) => `${allowedTargetsMap[t].alias}.${allowedTargetsMap[t].name}`
-          )
+          .map((target) => {
+            const namespaceEndIndex = target.indexOf(".");
+            return `/${target.slice(namespaceEndIndex + 1)}`;
+          })
       ).values(),
     ];
 
@@ -128,12 +126,7 @@ function resolveTargets(
   const result: Record<string, MetadataElementNameResolutionResult> = {};
   resolvedTargets.forEach((rt) => {
     resolvedTargets.forEach((rt) => {
-      if (rt.alias) {
-        result[`${rt.alias}.${rt.name}`] = rt;
-      }
-      if (rt.fqn) {
-        result[rt.fqn] = rt;
-      }
+      result[`/${rt.name}`] = rt;
     });
   });
   return result;

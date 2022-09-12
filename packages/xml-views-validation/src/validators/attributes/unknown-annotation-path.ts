@@ -34,14 +34,11 @@ export function validateUnknownAnnotationPath(
     let annotationList: any[] | undefined;
     const contextPath = getElementAttributeValue(element, "contextPath");
 
-    let target = contextPath;
     if (typeof contextPath === "string") {
       annotationList = collectAnnotationsForTarget(model, contextPath);
     } else {
-      const entitySet = getEntitySetFromController(element, model) || "";
-      target =
-        getEntityTypeForEntitySet(model.metadata, entitySet)?.name || entitySet;
-      annotationList = collectAnnotationsForTarget(model, target);
+      const entitySet = getEntitySetFromController(element, model) ?? "";
+      annotationList = collectAnnotationsForTarget(model, `/${entitySet}`);
     }
 
     const controlName = element.name || "";
@@ -119,7 +116,7 @@ export function validateUnknownAnnotationPath(
       return [
         {
           kind: "PathDoesNotExist",
-          message: `Path does not exist: "${target}/${attribute.value}"`,
+          message: `Path does not exist: "${contextPath}/${attribute.value}"`,
           offsetRange: {
             start: actualAttributeValueToken.startOffset,
             end: actualAttributeValueToken.endOffset,
@@ -147,17 +144,18 @@ function isPropertyPathAllowed(control: string): boolean {
   return control === "Field";
 }
 
-function collectAnnotationsForTarget(model: UI5SemanticModel, target: string) {
-  const resolvedTarget = resolveMetadataElementName(model.metadata, target);
-  if (resolvedTarget.fqn) {
-    const allowedTargetNames = [resolvedTarget.fqn, resolvedTarget.aliasedName];
-    const annotationsForTarget = model.annotations.filter((annotationList) =>
-      allowedTargetNames.includes(annotationList.target)
+function collectAnnotationsForTarget(
+  model: UI5SemanticModel,
+  contextPath: string
+) {
+  const annotationsForTarget = model.annotations.filter((annotationList) => {
+    const namespaceEndIndex = annotationList.target.indexOf(".");
+
+    return (
+      contextPath === `/${annotationList.target.slice(namespaceEndIndex + 1)}`
     );
-    return [].concat(
-      ...annotationsForTarget.map((entry) => entry.annotations || [])
-    );
-  } else {
-    return [];
-  }
+  });
+  return [].concat(
+    ...annotationsForTarget.map((entry) => entry.annotations || [])
+  );
 }

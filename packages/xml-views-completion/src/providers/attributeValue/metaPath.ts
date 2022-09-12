@@ -41,26 +41,22 @@ export function metaPathSuggestions({
     ui5Property.name === "metaPath"
   ) {
     let annotationList: any[] | undefined;
-    const contextPath = getElementAttributeValue(element, "contextPath");
-    const control = element.name || "";
+    let contextPath = getElementAttributeValue(element, "contextPath");
+    const control = element.name ?? "";
 
-    let targetName: string;
     if (typeof contextPath === "string") {
-      targetName = contextPath;
       annotationList = collectAnnotationsForTarget(context, contextPath);
     } else {
-      const entitySet = getEntitySetFromController(element, context) || "";
-      targetName =
-        getEntityTypeForEntitySet(context.metadata, entitySet)?.name ||
-        entitySet;
-      annotationList = collectAnnotationsForTarget(context, targetName);
+      const entitySet = getEntitySetFromController(element, context) ?? "";
+      contextPath = `/${entitySet}`;
+      annotationList = collectAnnotationsForTarget(context, contextPath);
     }
 
     // Entity type properties
     // TODO: provide props from associated targets
     if (isPropertyPathAllowed(control)) {
       result.push(
-        ...getPropertyPathsForCompletion(context.metadata, targetName).map(
+        ...getPropertyPathsForCompletion(context.metadata, contextPath).map(
           (property) =>
             ({
               type: "PropertyPathInXMLAttributeValue",
@@ -133,17 +129,18 @@ function isPropertyPathAllowed(control: string): boolean {
   return control === "Field";
 }
 
-function collectAnnotationsForTarget(model: UI5SemanticModel, target: string) {
-  const resolvedTarget = resolveMetadataElementName(model.metadata, target);
-  if (resolvedTarget.fqn) {
-    const allowedTargetNames = [resolvedTarget.fqn, resolvedTarget.aliasedName];
-    const annotationsForTarget = model.annotations.filter((annotationList) =>
-      allowedTargetNames.includes(annotationList.target)
+function collectAnnotationsForTarget(
+  model: UI5SemanticModel,
+  contextPath: string
+) {
+  const annotationsForTarget = model.annotations.filter((annotationList) => {
+    const namespaceEndIndex = annotationList.target.indexOf(".");
+
+    return (
+      contextPath === `/${annotationList.target.slice(namespaceEndIndex + 1)}`
     );
-    return [].concat(
-      ...annotationsForTarget.map((entry) => entry.annotations || [])
-    );
-  } else {
-    return [];
-  }
+  });
+  return [].concat(
+    ...annotationsForTarget.map((entry) => entry.annotations || [])
+  );
 }

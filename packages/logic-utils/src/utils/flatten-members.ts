@@ -10,7 +10,13 @@ function flattenMembers<T>(
   if (ui5SuperClass !== undefined) {
     // UI5 SDK refers to inherited members (properties, events, aggregations. ...) as "borrowed" ...
     const borrowedMembers = flattenMembers(membersGetter, ui5SuperClass);
-    return directMembers.concat(borrowedMembers);
+    return directMembers.concat(
+      borrowedMembers.filter(
+        (borrowed: any) =>
+          directMembers.find((direct: any) => direct.name === borrowed.name) ===
+          undefined
+      )
+    );
   }
   return directMembers;
 }

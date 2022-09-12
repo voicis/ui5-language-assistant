@@ -47,13 +47,15 @@ export function contextPathSuggestions({
     ];
 
     return distinctTargets.map((target) => {
+      const namespaceEndIndex = target.indexOf(".");
+      const contextPath = `/${target.slice(namespaceEndIndex + 1)}`;
       return {
         type: "AnnotationTargetInXMLAttributeValue",
         astNode: attribute,
         ui5Node: {
           kind: "AnnotationTarget",
-          name: target,
-          value: target,
+          name: contextPath,
+          value: contextPath,
         },
       };
     });
@@ -85,9 +87,3 @@ function resolveTargets(
 function isPropertyPathAllowed(control: string): boolean {
   return control === "Field";
 }
-
-// // TODO: support actions/functions/properties
-// function getMetadataElement(metadata: Metadata, name: string): MetadataEntityType | MetadataEntitySet | undefined {
-//   const resolvedName = resolveMetadataElementName(metadata, name);
-//   return metadata.entityTypes.find(entry => entry.fullyQualifiedName === resolvedName.fqn) || metadata.entitySets.find(entry => entry.fullyQualifiedName === resolvedName.fqn);
-// }
