@@ -15,6 +15,7 @@ export interface UI5SemanticModel {
   functions: Record<string, UI5Function>;
   annotations: any[];
   metadata: Metadata;
+  pathExpressions: PathExpressions;
   customViews: Record<
     string,
     {
@@ -54,26 +55,70 @@ export const METADATA_ENTITY_NAVIGATION_PROPERTY_KIND = "NavigationProperty";
 export const METADATA_ACTION_KIND = "Action";
 export const METADATA_ACTION_PARAMETER_KIND = "ActionParameter";
 export const METADATA_ACTION_IMPORT_KIND = "ActionImport";
+export const METADATA_COMPLEX_TYPE_KIND = "ComplexType";
 
 export type EntityContainerFullyQualifiedName = string;
 export type EntityTypeFullyQualifiedName = string;
 export type EntitySetFullyQualifiedName = string;
+export type NavigationPropertyFullyQualifiedName = string;
+export type PropertyFullyQualifiedName = string;
+export type ActionFullyQualifiedName = string;
+export type ActionParameterFullyQualifiedName = string;
+export type ComplexTypeFullyQualifiedName = string;
 
+export type MetadataElementFullyQualifiedName =
+  | EntityContainerFullyQualifiedName
+  | EntityTypeFullyQualifiedName
+  | EntitySetFullyQualifiedName
+  | NavigationPropertyFullyQualifiedName
+  | PropertyFullyQualifiedName
+  | ActionFullyQualifiedName
+  | ActionParameterFullyQualifiedName
+  | ComplexTypeFullyQualifiedName;
+
+export type Path = string;
 export interface MetadataElementBase {
   fullyQualifiedName: string;
   name: string;
   kind: string; // internal semantic type to identify metadata element
+  /**
+   * To restrict applicable terms (AppliesTo: 'Collection' - 	Entity Set or collection-valued Property or Navigation Property).
+   * To restrict path expressions to generic types (e.g. 'Collection(Edm.PrimitiveType)').
+   */
+  isCollection?: boolean;
+  /**
+   * To qualify as value for abstract type 'Edm.EntityType'.
+   * In EDM: all EntityTypes, EntitySets, Singletons, NavigationProperties.
+   */
+  isEntityType?: boolean;
+  /**
+   * To qualify as value for abstract type 'Edm.ComplexType'.
+   * In EDM: all ComplexType, Properties and Parameters typed with ComplexTypes.
+   */
+  isComplexType?: boolean;
+  /**
+   * Only for primitive values; if present also qualifies for abstract type 'Edm.PrimitiveValue'.
+   * To restrict paths correctly, e.g. to 'Edm.String' values, to apply 'Core.RequiresType' constraint for terms.
+   */
+  edmPrimitiveType?: string;
+  /**
+   * For all structured values: (absolute) path to metadata element defining the structure.
+   * (e.g. EntityType for EDM NavigationProperty, target for CDS association)
+   */
+  structuredType?: Path;
 }
 
 export interface MetadataEntityTypeProperty extends MetadataElementBase {
+  fullyQualifiedName: PropertyFullyQualifiedName;
   kind: typeof METADATA_ENTITY_PROPERTY_KIND;
   type: string; // property Edm type
 }
 
 export interface MetadataEntityTypeNavigationProperty
   extends MetadataElementBase {
+  fullyQualifiedName: NavigationPropertyFullyQualifiedName;
   kind: typeof METADATA_ENTITY_NAVIGATION_PROPERTY_KIND;
-  isCollection: boolean;
+  containsTarget: boolean;
   targetTypeName: string;
 }
 
@@ -92,17 +137,36 @@ export interface MetadataEntitySet extends MetadataElementBase {
 }
 
 export interface MetadataActionParameter extends MetadataElementBase {
+  fullyQualifiedName: ActionParameterFullyQualifiedName;
   kind: typeof METADATA_ACTION_PARAMETER_KIND;
-  isCollection: boolean;
   type: string;
 }
 export interface MetadataAction extends MetadataElementBase {
+  fullyQualifiedName: ActionFullyQualifiedName;
   kind: typeof METADATA_ACTION_KIND;
   isBound: boolean;
   isFunction: boolean;
   parameters?: MetadataActionParameter[];
 }
+export interface MetadataComplexType extends MetadataElementBase {
+  fullyQualifiedName: ComplexTypeFullyQualifiedName;
+  kind: typeof METADATA_COMPLEX_TYPE_KIND;
+  type: string;
+  properties: MetadataEntityTypeProperty[];
+  navigationProperties: MetadataEntityTypeNavigationProperty[];
+}
 
+export type MetadataMap = Map<Path, MetadataElementBase>;
+// Mapping of action/function names to all their overloads
+export type ActionNameMap = Map<Path, Set<Path>>;
+
+export type NavigationMap = {
+  [navSourceType: string]: {
+    [navTargetType: string]: {
+      [navPropName: string]: { isCollection: boolean };
+    };
+  };
+};
 export interface Metadata {
   actions: MetadataAction[];
   entityContainer?: MetadataElementBase & {
@@ -111,8 +175,45 @@ export interface Metadata {
   };
   entitySets: MetadataEntitySet[];
   entityTypes: MetadataEntityType[];
+  complexTypes: MetadataComplexType[];
   namespace: string;
   namespaceAlias?: string;
+  namespaces: Set<string>;
+  lookupMap: MetadataMap;
+  actionMap: ActionNameMap;
+  navigationSourceMap: NavigationMap;
+}
+
+export type PathKind = string;
+
+export interface PathExpressions {
+  [pathKind: PathKind]: PathCache | AnnotationPathCache | TargetPathCache;
+}
+
+export type TargetPathCache = {
+  [firstPathSegment: string]:
+    | string
+    | {
+        [property: string]: string;
+      };
+};
+
+export type PathCache = {
+  [typeFqName: string]: {
+    [firstPathSegment: string]: unknown;
+  };
+};
+
+export interface AnnotationPathCache {
+  [typeFqName: string]: {
+    [firstPathSegment: string]: {
+      [term: string]:
+        | {
+            [property: string]: boolean;
+          }
+        | boolean;
+    };
+  };
 }
 
 export interface UI5Meta {

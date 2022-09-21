@@ -30,24 +30,33 @@ export function resolveMetadataElementName(
 ): MetadataElementNameResolutionResult {
   const ns = metadata.namespace;
   const nsAlias = metadata.namespaceAlias;
-  const parts = name.split(".");
-  if (parts.length === 1) {
+
+  const segments = name.split("/");
+
+  if (!segments[0]) {
+    segments[0] = ns;
+  } else if (segments[0].includes(".")) {
+    const parts = segments[0].split(".");
+    segments[0] = parts.pop() || "";
+    segments.unshift(parts.join("."));
+  }
+
+  if (segments.length === 1) {
     return {
       alias: nsAlias,
-      name,
-      aliasedName: `${nsAlias}.${name}`,
-      fqn: `${ns}.${name}`,
+      name: segments[0],
+      aliasedName: `${nsAlias}.${segments[0]}`,
+      fqn: `${ns}.${segments[0]}`,
       namespace: ns,
     };
   } else {
-    const namePart = parts.pop();
-    const prefix = parts.join(".");
-    if (![ns, nsAlias].includes(prefix)) {
+    if (![ns, nsAlias].includes(segments[0])) {
       return { name };
     }
+    const namePart = segments.slice(1).join("/");
     return {
       alias: nsAlias,
-      name: namePart as string,
+      name: namePart,
       aliasedName: `${nsAlias}.${namePart}`,
       fqn: `${ns}.${namePart}`,
       namespace: ns,

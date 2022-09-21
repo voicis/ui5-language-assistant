@@ -170,14 +170,22 @@ export interface AnnotationTargetValue {
   name: string;
   value: string;
 }
+
+export interface AnnotationPathCompletionDetails {
+  startString: string;
+  remainingString: string;
+  commitCharacters: string[];
+}
 export interface AnnotationPathInXMLAttributeValueCompletion
   extends BaseXMLViewCompletion<XMLAttribute, AnnotationPathValue> {
   type: "AnnotationPathInXMLAttributeValue";
+  details?: AnnotationPathCompletionDetails;
 }
 
 export interface PropertyPathInXMLAttributeValueCompletion
   extends BaseXMLViewCompletion<XMLAttribute, PropertyPathValue> {
   type: "PropertyPathInXMLAttributeValue";
+  details?: AnnotationPathCompletionDetails;
 }
 
 export interface AnnotationTargetInXMLAttributeValueCompletion

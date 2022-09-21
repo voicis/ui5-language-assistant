@@ -226,6 +226,7 @@ export function buildUI5Model<T extends Partial<UI5SemanticModel>>(
     annotations: {},
     metadata: [],
     customViews: {},
+    pathExpressions: {},
     ...opts,
   };
 }

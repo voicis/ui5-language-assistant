@@ -11,13 +11,26 @@ import {
   PropertyPathInXMLAttributeValueCompletion,
 } from "../../../api";
 import { UI5AttributeValueCompletionOptions } from "./index";
-import {
+import type {
   EntityTypeFullyQualifiedName,
   Metadata,
+  MetadataElement,
+  MetadataElementBase,
+  MetadataElementFullyQualifiedName,
   MetadataEntityType,
+  MetadataEntityTypeNavigationProperty,
   MetadataEntityTypeProperty,
   UI5SemanticModel,
 } from "@ui5-language-assistant/semantic-model-types";
+import { completePathExpressions, EdmType } from "./pathUtils";
+
+export interface CompletionItem {
+  name: string;
+  text: string;
+  commitCharacters: string[];
+  commitCharacterRequired: boolean;
+  // documentation: { kind: MarkupKind.Markdown, value: documentation.join('\n') }
+}
 
 /**
  * Suggests values for macros metaPath
@@ -26,6 +39,7 @@ export function metaPathSuggestions({
   element,
   attribute,
   context,
+  prefix,
 }: UI5AttributeValueCompletionOptions): (
   | AnnotationPathInXMLAttributeValueCompletion
   | PropertyPathInXMLAttributeValueCompletion
@@ -36,6 +50,7 @@ export function metaPathSuggestions({
   )[] = [];
   const ui5Property = getUI5PropertyByXMLAttributeKey(attribute, context);
 
+  const startString = prefix || "";
   if (
     ui5Property?.library === "sap.fe.macros" &&
     ui5Property.name === "metaPath"
@@ -56,15 +71,23 @@ export function metaPathSuggestions({
     // TODO: provide props from associated targets
     if (isPropertyPathAllowed(control)) {
       result.push(
-        ...getPropertyPathsForCompletion(context.metadata, contextPath).map(
+        ...getPropertyPathsForCompletion(context, contextPath, startString).map(
           (property) =>
             ({
               type: "PropertyPathInXMLAttributeValue",
               astNode: attribute,
               ui5Node: {
                 kind: "PropertyPath",
-                name: property,
-                value: property,
+                name: property.name,
+                value: property.text,
+              },
+              details: {
+                startString,
+                remainingString:
+                  attribute.value?.slice(startString.length) || "",
+                commitCharacters: property.commitCharacterRequired
+                  ? property.commitCharacters
+                  : [],
               },
             } as PropertyPathInXMLAttributeValueCompletion)
         )
@@ -115,14 +138,105 @@ export function metaPathSuggestions({
 }
 
 function getPropertyPathsForCompletion(
-  metadata: Metadata,
-  targetName: EntityTypeFullyQualifiedName
-): string[] {
+  context: UI5SemanticModel,
+  targetName: EntityTypeFullyQualifiedName,
+  startString: string
+): CompletionItem[] {
+  const metadata = context.metadata;
+  const result: CompletionItem[] = [];
   const resolvedName = resolveMetadataElementName(metadata, targetName);
-  const properties = metadata.entityTypes.find(
-    (entry) => entry.fullyQualifiedName === (resolvedName.fqn || targetName)
-  )?.entityProperties;
-  return (properties || []).map((property) => property.name);
+  // const properties = metadata.entityTypes.find(entry => entry.fullyQualifiedName === (resolvedName.fqn || targetName))?.entityProperties || [];
+  // result.push(...properties.map(property => property.name));
+
+  // const associations = getAssociationsForEntityType(metadata, resolvedName.fqn || '');
+  // associations.forEach(a => {
+  //   const props = metadata.entityTypes.find(entry => entry.fullyQualifiedName === a.targetTypeName)?.entityProperties || [];
+  //   result.push(...props.map(property => `${a.name}/${property.name}`));
+  // });
+
+  const opts = getCompletionOptionsForPath(
+    context,
+    resolvedName.fqn || "",
+    startString
+  );
+  return [...result, ...opts];
+}
+
+function getCompletionOptionsForPath(
+  context: UI5SemanticModel,
+  targetName: MetadataElementFullyQualifiedName,
+  path: string
+): CompletionItem[] {
+  const pathBase = context.metadata.lookupMap.get(targetName);
+  if (!pathBase) {
+    return [];
+  }
+  //const terms = completePathExpressions(context.metadata, context.pathExpressions, pathBase, ['com.sap.vocabularies.UI.v1.LineItem'], [],  path);
+  const requestedTypes = determineTypesForCacheLookup([
+    "NavigationProperty",
+    "Property",
+  ]);
+  const properties = completePathExpressions(
+    context.metadata,
+    context.pathExpressions,
+    pathBase,
+    [],
+    requestedTypes,
+    path
+  );
+  return [...properties];
+}
+
+function determineTypesForCacheLookup(
+  requestedPathTargetTypes: string[]
+): (EdmType | "")[] {
+  const UI5toEdmTypesMap = {
+    EntitySet: EdmType.EntitySet,
+    EntityType: EdmType.EntityType,
+    Singleton: EdmType.Singleton,
+    Property: EdmType.PropertyPath,
+    NavigationProperty: EdmType.NavigationPropertyPath,
+  };
+
+  const types: Set<EdmType | ""> = new Set();
+  requestedPathTargetTypes.forEach((requestedPathTargetType) => {
+    const requestedEdmTarget = UI5toEdmTypesMap[requestedPathTargetType];
+
+    switch (requestedEdmTarget) {
+      case EdmType.EntityType:
+        types.add(EdmType.EntityType);
+        break;
+      case EdmType.EntitySet:
+        types.add(EdmType.EntitySet);
+        break;
+      case EdmType.Singleton:
+        types.add(EdmType.Singleton);
+        break;
+      case EdmType.PropertyPath:
+        types.add(EdmType.PrimitiveType);
+        types.add(EdmType.ComplexType);
+        break;
+      case EdmType.NavigationPropertyPath:
+        types.add(EdmType.EntityType);
+        break;
+    }
+  });
+  return [...types];
+}
+
+//
+function getAssociationsForEntityType(
+  metadata: Metadata,
+  entityTypeName: EntityTypeFullyQualifiedName
+): MetadataEntityTypeNavigationProperty[] {
+  const props =
+    metadata.entityTypes.find(
+      (entry) => entry.fullyQualifiedName === entityTypeName
+    )?.navigationProperties || [];
+  // filter out SiblingEntity pointing to entity itself and DraftAdministrationData which is marked with containsTarget=true
+  return props.filter(
+    (p) => !p.containsTarget && p.targetTypeName !== entityTypeName
+  );
 }
 
 function isPropertyPathAllowed(control: string): boolean {

@@ -47,7 +47,7 @@ export function contextPathSuggestions({
     ];
 
     return distinctTargets.map((target) => {
-      const namespaceEndIndex = target.indexOf(".");
+      const namespaceEndIndex = target.lastIndexOf(".");
       const contextPath = `/${target.slice(namespaceEndIndex + 1)}`;
       return {
         type: "AnnotationTargetInXMLAttributeValue",

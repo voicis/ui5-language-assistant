@@ -24,6 +24,7 @@ import {
   UI5XMLViewCompletion,
   UI5ClassesInXMLTagNameCompletion,
   isUI5NodeXMLViewCompletion,
+  AnnotationPathCompletionDetails,
 } from "@ui5-language-assistant/xml-views-completion";
 import { ui5NodeToFQN } from "@ui5-language-assistant/logic-utils";
 import { getNodeDocumentation, getNodeDetail } from "./documentation";
@@ -78,6 +79,7 @@ function transformToLspSuggestions(
       detail: getDetail(suggestion),
       documentation: documentation,
       kind: lspKind,
+      commitCharacters: textEditDetails.commitCharacters,
       // TODO tags are not supported in Theia: https://che-incubator.github.io/vscode-theia-comparator/status.html
       // tags: suggestion.ui5Node.deprecatedInfo?.isDeprecated
       //   ? [CompletionItemTag.Deprecated]
@@ -124,14 +126,19 @@ export function computeLSPKind(
 function createTextEdits(
   suggestion: UI5XMLViewCompletion,
   originalPosition: Position
-): { textEdit: TextEdit; filterText: string; additionalTextEdits: TextEdit[] } {
+): {
+  textEdit: TextEdit;
+  filterText: string;
+  additionalTextEdits: TextEdit[];
+  commitCharacters: string[];
+} {
   const additionalTextEdits: TextEdit[] = [];
   let range: Range = {
     start: originalPosition,
     end: originalPosition,
   };
   let newText = suggestion.ui5Node.name;
-
+  let commitCharacters: string[] = [];
   // The filter text is used by VSCode/Theia to filter out suggestions that don't match the text the user wrote.
   // Every character being replaced by the TextEdit (until the cursor position) should exist in the filter text.
   // Since we replace the whole value (tag name/attribute key/attribute value) the filter text should contain
@@ -232,9 +239,7 @@ function createTextEdits(
       filterText = newText;
       break;
     }
-    case "AnnotationPathInXMLAttributeValue":
     case "AnnotationTargetInXMLAttributeValue":
-    case "PropertyPathInXMLAttributeValue":
     case "UI5EnumsInXMLAttributeValue": {
       // The 'else' part will never happen because to get suggestions for attribute value, the "" at least must exist so
       // the attribute value syntax exists
@@ -242,6 +247,22 @@ function createTextEdits(
       range = getXMLAttributeValueRange(suggestion.astNode) ?? range;
       // Attribute values should contain quotation marks
       newText = `"${newText}"`;
+      filterText = newText;
+      break;
+    }
+    case "PropertyPathInXMLAttributeValue":
+    case "AnnotationPathInXMLAttributeValue": {
+      // The 'else' part will never happen because to get suggestions for attribute value, the "" at least must exist so
+      // the attribute value syntax exists
+      /* istanbul ignore next */
+      if (suggestion.details) {
+        range = getAffectedRange(suggestion.details, originalPosition);
+        commitCharacters = suggestion.details.commitCharacters;
+      } else {
+        range = getXMLAttributeValueRange(suggestion.astNode) ?? range;
+        // Attribute values should contain quotation marks
+        newText = `"${newText}"`;
+      }
       filterText = newText;
       break;
     }
@@ -264,6 +285,7 @@ function createTextEdits(
     },
     filterText,
     additionalTextEdits,
+    commitCharacters,
   };
 }
 
@@ -558,4 +580,50 @@ function getDetail(suggestion: UI5XMLViewCompletion): string | undefined {
     detailText = `(deprecated) ${detailText}`;
   }
   return detailText;
+}
+
+export function getAffectedRange(
+  completeString: AnnotationPathCompletionDetails,
+  position: Position
+): Range {
+  let startStringLength =
+    position.character - completeString.startString.length;
+  let remainingStringLength =
+    position.character + completeString.remainingString.length;
+
+  const commitCharacter = completeString.commitCharacters?.length
+    ? completeString.commitCharacters[0]
+    : "";
+
+  // limit to the left with commitCharacter or '/'
+  const fragmentArray = completeString.startString.split(
+    commitCharacter || "/"
+  );
+  if (fragmentArray.length > 1) {
+    const newString = fragmentArray.pop() || "";
+    startStringLength = position.character - newString.toString().length;
+  }
+
+  // limit to the right only if commitCharacter is present
+  if (commitCharacter) {
+    const remainingStringFragment = completeString.remainingString.split(
+      commitCharacter
+    );
+    if (remainingStringFragment.length > 1) {
+      const newString = remainingStringFragment.slice(0, 1);
+      remainingStringLength = position.character + newString.toString().length;
+    }
+  }
+
+  // Return affected range: Range
+  return {
+    start: {
+      line: position.line,
+      character: startStringLength,
+    },
+    end: {
+      line: position.line,
+      character: remainingStringLength,
+    },
+  };
 }

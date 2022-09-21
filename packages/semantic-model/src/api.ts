@@ -42,3 +42,4 @@ export function generate({
 }
 
 export { forEachSymbol, findSymbol } from "./utils";
+export { addPathToObject } from "./pathCache";
