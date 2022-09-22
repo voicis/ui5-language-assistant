@@ -100,6 +100,7 @@ async function createSemanticModelWithFetcher(
   getLogger().info("The following framework/version has been detected", {
     framework,
     version,
+    modelCachePath,
   });
 
   // Note: all cache handling (reading, writing etc) is optional from the user perspective but

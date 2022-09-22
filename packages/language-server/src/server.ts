@@ -363,3 +363,8 @@ connection.listen();
 function isXMLView(uri: string): boolean {
   return /(view|fragment)\.xml$/.test(uri);
 }
+
+console.info = connection.console.info.bind(connection.console);
+console.trace = connection.console.log.bind(connection.console);
+console.debug = connection.console.log.bind(connection.console);
+console.warn = connection.console.warn.bind(connection.console);

@@ -1,5 +1,6 @@
 import { XMLElement } from "@xml-tools/ast";
 import { getRootElement } from "./xml-utils";
+import { specification } from "./spec";
 
 export function getEntitySetFromController(
   element: XMLElement,
@@ -18,29 +19,9 @@ export function getEntitySetFromController(
 export function getAllowedAnnotationsTermsForControl(
   controlName: string
 ): string[] {
-  switch (controlName) {
-    case "FilterBar": {
-      return ["com.sap.vocabularies.UI.v1.SelectionFields"];
-    }
-    case "MicroChart":
-    case "Chart": {
-      return ["com.sap.vocabularies.UI.v1.Chart"];
-    }
-    case "Field": {
-      return [
-        "com.sap.vocabularies.UI.v1.DataField",
-        "com.sap.vocabularies.UI.v1.DataPoint",
-      ];
-    }
-    case "Form": {
-      return ["com.sap.vocabularies.UI.v1.FieldGroup"];
-    }
-    case "Table": {
-      return [
-        "com.sap.vocabularies.UI.v1.LineItem",
-        "com.sap.vocabularies.UI.v1.PresentationVariant",
-      ];
-    }
+  const spec = specification[controlName];
+  if (spec) {
+    return spec.allowedAnnotations;
   }
   return [];
 }
