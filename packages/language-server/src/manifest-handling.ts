@@ -5,17 +5,11 @@ import { readFile } from "fs-extra";
 import globby from "globby";
 import { FileChangeType } from "vscode-languageserver";
 import { getLogger } from "./logger";
+import { getCdsMetadata } from "./cds";
+import type { ManifestDetails } from "@ui5-language-assistant/semantic-model-types";
 
 type AbsolutePath = string;
 type ManifestData = Record<AbsolutePath, ManifestDetails>;
-
-export type ManifestDetails = {
-  flexEnabled: boolean;
-  minUI5Version: string;
-  metadataFile: string | undefined;
-  annotationFiles: string[];
-  customViews: { [name: string]: { entitySet: string } };
-};
 
 const manifestData: ManifestData = Object.create(null);
 
@@ -78,7 +72,7 @@ export function getFlexEnabledFlagForXMLFile(xmlPath: string): boolean {
     return false;
   }
 
-  return manifestData[closestManifestPath].flexEnabled;
+  return manifestData[closestManifestPath].flexEnabled ?? false;
 }
 
 export function getMinUI5VersionForXMLFile(
@@ -173,14 +167,20 @@ async function readManifestFile(
   let annotationContent: string[] = [];
   if (dataSources) {
     const defaultModelDataSource = dataSources[modelDataSource];
-    const localUri = defaultModelDataSource?.settings?.localUri;
-    if (localUri) {
-      const metadataPath = normalize(join(manifestPath, "..", localUri));
-      metadataContent = await readFile(metadataPath, {
-        encoding: "utf8",
-      });
+    const cdsMetadata = await getCdsMetadata(
+      normalize(join(manifestPath, ".."))
+    );
+    if (cdsMetadata) {
+      metadataContent = cdsMetadata;
+    } else {
+      const localUri = defaultModelDataSource?.settings?.localUri;
+      if (localUri) {
+        const metadataPath = normalize(join(manifestPath, "..", localUri));
+        metadataContent = await readFile(metadataPath, {
+          encoding: "utf8",
+        });
+      }
     }
-
     const annotationFilePaths = (
       defaultModelDataSource?.settings?.annotations ?? []
     )
@@ -215,8 +215,8 @@ async function readManifestFile(
   return {
     flexEnabled: flexEnabled,
     minUI5Version: minUI5Version,
-    annotationFiles: annotationContent,
-    metadataFile: metadataContent,
+    // annotationFiles: annotationContent,
+    // metadataFile: metadataContent,
     customViews,
   };
 }

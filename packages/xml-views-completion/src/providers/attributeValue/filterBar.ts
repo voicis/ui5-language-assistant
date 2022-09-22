@@ -17,14 +17,17 @@ export function filterBarAttributeSuggestions({
   attribute,
   context,
 }: UI5AttributeValueCompletionOptions): AnnotationPathInXMLAttributeValueCompletion[] {
-  const ui5Property = getUI5PropertyByXMLAttributeKey(attribute, context);
+  const ui5Property = getUI5PropertyByXMLAttributeKey(
+    attribute,
+    context.ui5Model
+  );
 
   if (
     ui5Property?.library === SAP_FE_MACROS &&
     ui5Property?.name === "filterBar"
   ) {
     const root = getRootElement(element);
-    const ids = collectFilterBarElements(root, context);
+    const ids = collectFilterBarElements(root, context.ui5Model);
     return ids.map((id) => ({
       type: "AnnotationPathInXMLAttributeValue",
 

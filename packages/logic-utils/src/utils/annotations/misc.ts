@@ -1,17 +1,18 @@
 import { XMLElement } from "@xml-tools/ast";
 import { getRootElement } from "./xml-utils";
 import { specification } from "./spec";
+import { ManifestDetails } from "@ui5-language-assistant/semantic-model-types";
 
 export function getEntitySetFromController(
   element: XMLElement,
-  context: any
+  manifest: ManifestDetails | undefined
 ): string | undefined {
   let result: string | undefined;
   const controllerName = getRootElement(element).attributes.find(
     (attribute) => attribute.key === "controllerName"
   )?.value;
   if (controllerName) {
-    result = context.customViews[controllerName]?.entitySet;
+    result = manifest?.customViews?.[controllerName]?.entitySet;
   }
   return result;
 }

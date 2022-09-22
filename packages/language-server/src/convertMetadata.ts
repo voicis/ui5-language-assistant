@@ -167,37 +167,81 @@ function convertMetadataComplexType<
   return result;
 }
 
+// export function convertMetadata<
+//   B extends MetadataElementBase,
+//   S extends MetadataEntitySet,
+//   T extends MetadataEntityType
+// >(
+//   mergedModel: ExpectedMergedModel<B, S, T>
+// ): ConvertedMetadata {
+//   const entitySets = mergedModel._entitySets.map((set) =>
+//     convertMetadataEntitySet(set)
+//   );
+//   const entityTypes = mergedModel._entityTypes.map((type) =>
+//     convertMetadataEntityType(type)
+//   );
+//   const namespace = mergedModel._namespace;
+//   const namespaceAlias = mergedModel._references.find(
+//     (r) => r.namespace === mergedModel._namespace
+//   )?.alias;
+//   const result: ConvertedMetadata = {
+//     entitySets,
+//     entityTypes,
+//     namespace,
+//     namespaceAlias
+//   }
+
+//   if (mergedModel._entityContainer) {
+//     result.entityContainer = {
+//       ...mergedModel._entityContainer,
+//       kind: METADATA_ENTITY_CONTAINER_KIND,
+//     };
+//   }
+//     return result;
+// }
+
 export function convertMetadata<
   B extends MetadataElement,
   S extends MetadataEntitySet,
   T extends MetadataEntityType,
   CT extends MetadataComplexType
->(
-  semanticModel: UI5SemanticModel,
-  mergedModel: ExpectedMergedModel<B, S, T, CT>
-): void {
+>(mergedModel: ExpectedMergedModel<B, S, T, CT>): Metadata {
+  const entitySets = mergedModel._entitySets.map((set) =>
+    convertMetadataEntitySet(set)
+  );
+  const entityTypes = mergedModel._entityTypes.map((type) =>
+    convertMetadataEntityType(type, mergedModel._entityTypes as any)
+  );
+
+  const complexTypes = mergedModel._complexTypes.map((type) =>
+    convertMetadataComplexType(type, mergedModel._complexTypes)
+  );
+  const namespace = mergedModel._namespace;
+  const namespaceAlias = mergedModel._references.find(
+    (r) => r.namespace === mergedModel._namespace
+  )?.alias;
+  const metadata: Metadata = {
+    entitySets,
+    complexTypes,
+    entityTypes,
+    namespace,
+    namespaceAlias,
+    actionMap: new Map(),
+    actions: [],
+    lookupMap: new Map(),
+    namespaces: new Set(),
+    navigationSourceMap: {},
+  };
+
   if (mergedModel._entityContainer) {
-    semanticModel.metadata.entityContainer = {
+    metadata.entityContainer = {
       ...mergedModel._entityContainer,
       kind: METADATA_ENTITY_CONTAINER_KIND,
     };
   }
-  semanticModel.metadata.entitySets = mergedModel._entitySets.map((set) =>
-    convertMetadataEntitySet(set)
-  );
-  semanticModel.metadata.entityTypes = mergedModel._entityTypes.map((type) =>
-    convertMetadataEntityType(type, mergedModel._complexTypes)
-  );
-  semanticModel.metadata.complexTypes = mergedModel._complexTypes.map((type) =>
-    convertMetadataComplexType(type, mergedModel._complexTypes)
-  );
-  semanticModel.metadata.namespace = mergedModel._namespace;
-  semanticModel.metadata.namespaceAlias = mergedModel._references.find(
-    (r) => r.namespace === mergedModel._namespace
-  )?.alias;
-
-  buildMetadataElementLookup(semanticModel.metadata);
-  buildNavigationSourceMap(semanticModel.metadata);
+  buildMetadataElementLookup(metadata);
+  buildNavigationSourceMap(metadata);
+  return metadata;
 }
 
 function buildMetadataElementLookup(metadata: Metadata): void {
@@ -293,4 +337,12 @@ function getActionName(name: Path): Path {
   return partsOpen.length > 1 && partsClose.length > 1
     ? (partsOpen.shift() ?? "") + (partsClose.pop() ?? "")
     : name;
+}
+
+export interface ConvertedMetadata {
+  entityContainer?: MetadataElement;
+  entitySets: MetadataEntitySet[];
+  entityTypes: MetadataEntityType[];
+  namespace: string;
+  namespaceAlias?: string;
 }

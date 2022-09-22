@@ -1,20 +1,11 @@
 import { map, get } from "lodash";
-import { resolve, join, normalize } from "path";
-import {
-  readFile,
-  pathExists,
-  lstat,
-  readJson,
-  writeJson,
-  mkdirs,
-} from "fs-extra";
-import globby from "globby";
+import { resolve } from "path";
+import { pathExists, lstat, readJson, writeJson, mkdirs } from "fs-extra";
 import semver from "semver";
 import semverMinSatisfying from "semver/ranges/min-satisfying";
 
-import { fileURLToPath, pathToFileURL } from "url";
-
 import {
+  ManifestDetails,
   UI5Framework,
   UI5SemanticModel,
 } from "@ui5-language-assistant/semantic-model-types";
@@ -32,61 +23,9 @@ import {
   getVersionInfoUrl,
   getVersionJsonUrl,
 } from "./ui5-helper";
-import { ManifestDetails } from "./manifest-handling";
-
-export async function getSemanticModel(
-  modelCachePath: string | undefined,
-  cacheKey: string,
-  manifestDetails: ManifestDetails | undefined,
-  framework: UI5Framework,
-  version: string | undefined,
-  ignoreCache?: boolean
-): Promise<UI5SemanticModel> {
-  return getSemanticModelWithFetcher(
-    fetch,
-    modelCachePath,
-    cacheKey,
-    manifestDetails,
-    framework,
-    version,
-    ignoreCache
-  );
-}
-
-// cache the semantic model creation promise to ensure unique instances per version
-const semanticModelCache: Record<
-  string,
-  Promise<UI5SemanticModel>
-> = Object.create(null);
-// This function is exported for testing purposes (using a mock fetcher)
-export async function getSemanticModelWithFetcher(
-  fetcher: Fetcher,
-  modelCachePath: string | undefined,
-  cacheKey: string,
-  manifestDetails: ManifestDetails | undefined,
-  framework: UI5Framework,
-  version: string | undefined,
-  ignoreCache?: boolean
-): Promise<UI5SemanticModel> {
-  const frameWorkCacheKey = `${framework || "INVALID"}:${version || "INVALID"}`;
-  if (ignoreCache || semanticModelCache[cacheKey] === undefined) {
-    semanticModelCache[cacheKey] = createSemanticModelWithFetcher(
-      fetcher,
-      modelCachePath,
-      manifestDetails,
-      framework,
-      version
-    );
-  }
-  return semanticModelCache[cacheKey];
-}
-
-export function invalidateCache(cacheKey: string): void {
-  delete semanticModelCache[cacheKey];
-}
 
 // This function is exported for testing purposes (using a mock fetcher)
-async function createSemanticModelWithFetcher(
+export async function createSemanticModelWithFetcher(
   fetcher: Fetcher,
   modelCachePath: string | undefined,
   manifestDetails: ManifestDetails | undefined,
@@ -129,7 +68,6 @@ async function createSemanticModelWithFetcher(
   const jsonMap: Record<string, Json> = {};
 
   const libs = await getLibs(modelCachePath, framework, version);
-  let manifest;
 
   await Promise.all(
     map(libs, async (libName) => {
@@ -160,8 +98,6 @@ async function createSemanticModelWithFetcher(
       }
     })
   );
-  // Enhance with FE and annotation data
-  manifestDetails;
 
   return generate({
     version: version,

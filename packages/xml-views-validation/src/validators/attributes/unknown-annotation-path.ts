@@ -1,5 +1,5 @@
 import { XMLAttribute } from "@xml-tools/ast";
-import { UI5SemanticModel } from "@ui5-language-assistant/semantic-model-types";
+import { AppContext } from "@ui5-language-assistant/semantic-model-types";
 import {
   filterAnnotationsForControl,
   getElementAttributeValue,
@@ -13,7 +13,7 @@ import { isPossibleBindingAttributeValue } from "../../utils/is-binding-attribut
 
 export function validateUnknownAnnotationPath(
   attribute: XMLAttribute,
-  model: UI5SemanticModel
+  context: AppContext
 ): AnnotationIssue[] {
   const actualAttributeValue = attribute.value;
   const actualAttributeValueToken = attribute.syntax.value;
@@ -25,7 +25,10 @@ export function validateUnknownAnnotationPath(
     return [];
   }
 
-  const ui5Property = getUI5PropertyByXMLAttributeKey(attribute, model);
+  const ui5Property = getUI5PropertyByXMLAttributeKey(
+    attribute,
+    context.ui5Model
+  );
   if (
     ui5Property?.library === "sap.fe.macros" &&
     ui5Property.name === "metaPath"
@@ -33,12 +36,26 @@ export function validateUnknownAnnotationPath(
     const element = attribute.parent;
     let annotationList: any[] | undefined;
     const contextPath = getElementAttributeValue(element, "contextPath");
+    const mainServicePath = context.manifest?.mainServicePath;
+    const service = mainServicePath
+      ? context.services[mainServicePath]
+      : undefined;
+    if (!service) {
+      return [];
+    }
 
     if (typeof contextPath === "string") {
-      annotationList = collectAnnotationsForTarget(model, contextPath);
+      annotationList = collectAnnotationsForTarget(
+        service.annotations,
+        contextPath
+      );
     } else {
-      const entitySet = getEntitySetFromController(element, model) ?? "";
-      annotationList = collectAnnotationsForTarget(model, `/${entitySet}`);
+      const entitySet =
+        getEntitySetFromController(element, context.manifest) ?? "";
+      annotationList = collectAnnotationsForTarget(
+        service.annotations,
+        `/${entitySet}`
+      );
     }
 
     const controlName = element.name || "";
@@ -144,11 +161,8 @@ function isPropertyPathAllowed(control: string): boolean {
   return control === "Field";
 }
 
-function collectAnnotationsForTarget(
-  model: UI5SemanticModel,
-  contextPath: string
-) {
-  const annotationsForTarget = model.annotations.filter((annotationList) => {
+function collectAnnotationsForTarget(annotations: any[], contextPath: string) {
+  const annotationsForTarget = annotations.filter((annotationList) => {
     const namespaceEndIndex = annotationList.target.indexOf(".");
 
     return (

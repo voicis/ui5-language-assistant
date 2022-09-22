@@ -43,5 +43,3 @@ export function findSymbol(
   model: UI5SemanticModel,
   fqn: string
 ): BaseUI5Node | undefined;
-
-export function addPathToObject(object: any, path: string, value?: any): void;

@@ -12,6 +12,7 @@ import {
 } from "../../../api";
 import { UI5AttributeValueCompletionOptions } from "./index";
 import type {
+  AppContext,
   EntityTypeFullyQualifiedName,
   Metadata,
   MetadataElement,
@@ -20,6 +21,7 @@ import type {
   MetadataEntityType,
   MetadataEntityTypeNavigationProperty,
   MetadataEntityTypeProperty,
+  ServiceDetails,
   UI5SemanticModel,
 } from "@ui5-language-assistant/semantic-model-types";
 import { completePathExpressions, EdmType } from "./pathUtils";
@@ -48,7 +50,10 @@ export function metaPathSuggestions({
     | AnnotationPathInXMLAttributeValueCompletion
     | PropertyPathInXMLAttributeValueCompletion
   )[] = [];
-  const ui5Property = getUI5PropertyByXMLAttributeKey(attribute, context);
+  const ui5Property = getUI5PropertyByXMLAttributeKey(
+    attribute,
+    context.ui5Model
+  );
 
   const startString = prefix || "";
   if (
@@ -58,20 +63,33 @@ export function metaPathSuggestions({
     let annotationList: any[] | undefined;
     let contextPath = getElementAttributeValue(element, "contextPath");
     const control = element.name ?? "";
-
+    const mainServicePath = context.manifest?.mainServicePath;
+    const service = mainServicePath
+      ? context.services[mainServicePath]
+      : undefined;
+    if (!service) {
+      return [];
+    }
     if (typeof contextPath === "string") {
-      annotationList = collectAnnotationsForTarget(context, contextPath);
+      annotationList = collectAnnotationsForTarget(
+        service.annotations,
+        contextPath
+      );
     } else {
-      const entitySet = getEntitySetFromController(element, context) ?? "";
+      const entitySet =
+        getEntitySetFromController(element, context.manifest) ?? "";
       contextPath = `/${entitySet}`;
-      annotationList = collectAnnotationsForTarget(context, contextPath);
+      annotationList = collectAnnotationsForTarget(
+        service.annotations,
+        contextPath
+      );
     }
 
     // Entity type properties
     // TODO: provide props from associated targets
     if (isPropertyPathAllowed(control)) {
       result.push(
-        ...getPropertyPathsForCompletion(context, contextPath, startString).map(
+        ...getPropertyPathsForCompletion(service, contextPath, startString).map(
           (property) =>
             ({
               type: "PropertyPathInXMLAttributeValue",
@@ -138,13 +156,12 @@ export function metaPathSuggestions({
 }
 
 function getPropertyPathsForCompletion(
-  context: UI5SemanticModel,
+  service: ServiceDetails,
   targetName: EntityTypeFullyQualifiedName,
   startString: string
 ): CompletionItem[] {
-  const metadata = context.metadata;
   const result: CompletionItem[] = [];
-  const resolvedName = resolveMetadataElementName(metadata, targetName);
+  const resolvedName = resolveMetadataElementName(service.metadata, targetName);
   // const properties = metadata.entityTypes.find(entry => entry.fullyQualifiedName === (resolvedName.fqn || targetName))?.entityProperties || [];
   // result.push(...properties.map(property => property.name));
 
@@ -155,7 +172,7 @@ function getPropertyPathsForCompletion(
   // });
 
   const opts = getCompletionOptionsForPath(
-    context,
+    service,
     resolvedName.fqn || "",
     startString
   );
@@ -163,11 +180,11 @@ function getPropertyPathsForCompletion(
 }
 
 function getCompletionOptionsForPath(
-  context: UI5SemanticModel,
+  service: ServiceDetails,
   targetName: MetadataElementFullyQualifiedName,
   path: string
 ): CompletionItem[] {
-  const pathBase = context.metadata.lookupMap.get(targetName);
+  const pathBase = service.metadata.lookupMap.get(targetName);
   if (!pathBase) {
     return [];
   }
@@ -177,8 +194,8 @@ function getCompletionOptionsForPath(
     "Property",
   ]);
   const properties = completePathExpressions(
-    context.metadata,
-    context.pathExpressions,
+    service.metadata,
+    service.pathExpressions,
     pathBase,
     [],
     requestedTypes,
@@ -243,11 +260,8 @@ function isPropertyPathAllowed(control: string): boolean {
   return control === "Field";
 }
 
-function collectAnnotationsForTarget(
-  model: UI5SemanticModel,
-  contextPath: string
-) {
-  const annotationsForTarget = model.annotations.filter((annotationList) => {
+function collectAnnotationsForTarget(annotations: any[], contextPath: string) {
+  const annotationsForTarget = annotations.filter((annotationList) => {
     const namespaceEndIndex = annotationList.target.indexOf(".");
 
     return (

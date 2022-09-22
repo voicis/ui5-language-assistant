@@ -1,5 +1,4 @@
 import { resolveMetadataElementName } from "@ui5-language-assistant/logic-utils";
-import { addPathToObject } from "@ui5-language-assistant/semantic-model";
 import {
   AnnotationPathCache,
   Metadata,
@@ -838,3 +837,48 @@ function findCacheObjectBySegments(
 
 //     return segmentWithoutAlias;
 // }
+function addPathToObject(object: any, path: string, value?: any): void {
+  if (typeof object === "object") {
+    const segments = path.split("/");
+    const lastIndex = segments.length - 1;
+    let currentObject = object;
+    segments.forEach((segment, index) => {
+      if (segment) {
+        if (currentObject[segment]) {
+          if (index === lastIndex) {
+            if (typeof currentObject[segment] === "object") {
+              // object exists already for deeper path: set $Self property for path ending here
+              currentObject[segment]["$Self"] = value || true;
+            } else {
+              // primitive target existed already - try to preserve it as $Self
+              let selfValue = currentObject[segment];
+              if (typeof value === "object") {
+                if (
+                  typeof selfValue === "boolean" ||
+                  (value.$Self && typeof value.$Self !== "boolean")
+                ) {
+                  selfValue = value.$Self || true; // use non boolean (string) value if present
+                }
+                currentObject[segment] = Object.assign({}, value, {
+                  $Self: selfValue,
+                });
+              } else if (
+                typeof selfValue === "boolean" ||
+                (value && typeof value !== "boolean")
+              ) {
+                currentObject[segment] = value || true; // preserve non boolean (string) value
+              }
+            }
+          }
+        } else {
+          currentObject[segment] = index === lastIndex ? value || true : {};
+        }
+        if (index < lastIndex && typeof currentObject[segment] !== "object") {
+          // prepare for deeper nesting: save primitive value in $Self attribute
+          currentObject[segment] = { $Self: currentObject[segment] };
+        }
+        currentObject = currentObject[segment];
+      }
+    });
+  }
+}

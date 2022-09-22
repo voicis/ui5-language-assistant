@@ -1,7 +1,7 @@
 import { XMLAttribute } from "@xml-tools/ast";
 import {
   Metadata,
-  UI5SemanticModel,
+  AppContext,
 } from "@ui5-language-assistant/semantic-model-types";
 import {
   filterAnnotationsForControl,
@@ -14,7 +14,7 @@ import { isPossibleBindingAttributeValue } from "../../utils/is-binding-attribut
 
 export function validateUnknownAnnotationTarget(
   attribute: XMLAttribute,
-  model: UI5SemanticModel
+  context: AppContext
 ): (AnnotationIssue | UnknownEnumValueIssue)[] {
   const actualAttributeValue = attribute.value;
   const actualAttributeValueToken = attribute.syntax.value;
@@ -26,22 +26,32 @@ export function validateUnknownAnnotationTarget(
     return [];
   }
 
-  const ui5Property = getUI5PropertyByXMLAttributeKey(attribute, model);
+  const ui5Property = getUI5PropertyByXMLAttributeKey(
+    attribute,
+    context.ui5Model
+  );
   if (
     ui5Property?.library === "sap.fe.macros" &&
     ui5Property.name === "contextPath"
   ) {
     const element = attribute.parent;
     const control = element.name || "";
+    const mainServicePath = context.manifest?.mainServicePath;
+    const service = mainServicePath
+      ? context.services[mainServicePath]
+      : undefined;
+    if (!service) {
+      return [];
+    }
     const allowedTargets = isPropertyPathAllowed(control)
-      ? model.metadata.entityTypes.map((entry) => entry.fullyQualifiedName)
-      : model.annotations
+      ? service.metadata.entityTypes.map((entry) => entry.fullyQualifiedName)
+      : service.annotations
           .filter(
             (entry) =>
               filterAnnotationsForControl(control, entry.annotations).length > 0
           )
           .map((entry) => entry.target);
-    const allowedTargetsMap = resolveTargets(model.metadata, allowedTargets);
+    const allowedTargetsMap = resolveTargets(service.metadata, allowedTargets);
     const distinctAllowedTargets = [
       ...new Set(
         allowedTargets
@@ -72,9 +82,11 @@ export function validateUnknownAnnotationTarget(
       ];
     }
 
-    const allAvailableTargets = model.annotations.map((entry) => entry.target);
+    const allAvailableTargets = service.annotations.map(
+      (entry) => entry.target
+    );
     const allAvailableTargetsMap = resolveTargets(
-      model.metadata,
+      service.metadata,
       allAvailableTargets
     );
     // Target itself is correct but doesn't suit current context

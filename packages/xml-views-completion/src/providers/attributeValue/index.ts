@@ -1,4 +1,4 @@
-import { UI5SemanticModel } from "@ui5-language-assistant/semantic-model-types";
+import { AppContext } from "@ui5-language-assistant/semantic-model-types";
 import {
   AttributeValueCompletion,
   AttributeValueCompletionOptions,
@@ -13,7 +13,7 @@ import { contextPathSuggestions } from "./contextPath";
 
 export const attributeValueProviders: AttributeValueCompletion<
   UI5XMLViewCompletion,
-  UI5SemanticModel
+  AppContext
 >[] = [
   enumSuggestions,
   namespaceValueSuggestions,
@@ -23,4 +23,4 @@ export const attributeValueProviders: AttributeValueCompletion<
   contextPathSuggestions,
 ];
 
-export type UI5AttributeValueCompletionOptions = AttributeValueCompletionOptions<UI5SemanticModel>;
+export type UI5AttributeValueCompletionOptions = AttributeValueCompletionOptions<AppContext>;

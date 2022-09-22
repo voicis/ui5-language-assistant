@@ -17,11 +17,11 @@ import * as apiJson from "./api-json";
 import { isLibraryFile } from "./validate";
 import { fixLibrary } from "./fix-api-json";
 import { error, hasProperty, newMap } from "./utils";
-import { convertMetadata } from "./convertMetadata";
-import {
-  addAnnotationToPathExpressionCache,
-  addPathToObject,
-} from "./pathCache";
+// import { convertMetadata } from "./convertMetadata";
+// import {
+//   addAnnotationToPathExpressionCache,
+//   addPathToObject,
+// } from "@ui5-language-assistant/language-server/src/pathCache";
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const parser = require("@sap-ux/edmx-parser");
@@ -42,21 +42,6 @@ export function convertToSemanticModel(
     namespaces: newMap(),
     typedefs: newMap(),
     interfaces: newMap(),
-    annotations: [],
-    customViews: newMap(),
-    metadata: {
-      actions: [],
-      entitySets: [],
-      entityTypes: [],
-      namespace: "",
-      namespaceAlias: "",
-      namespaces: new Set(),
-      lookupMap: new Map(),
-      actionMap: new Map(),
-      navigationSourceMap: {},
-      complexTypes: [],
-    },
-    pathExpressions: {},
   };
 
   // Convert to array (with deterministic order) to ensure consistency when inserting to maps
@@ -89,160 +74,47 @@ export function convertToSemanticModel(
     model
   );
 
-  model.customViews = manifest?.customViews ?? {};
-
   // read annotations
 
-  if (manifest?.metadataFile) {
-    const myParsedEdmx = parser.parse(manifest.metadataFile);
-    const annotations = manifest.annotationFiles.map(parser.parse);
-    const mergedModel = parser.merge(myParsedEdmx, ...annotations);
+  // if (manifest?.metadataFile) {
+  //   const myParsedEdmx = parser.parse(manifest.metadataFile);
+  //   const annotations = manifest.annotationFiles.map(parser.parse);
+  //   const mergedModel = parser.merge(myParsedEdmx, ...annotations);
 
-    // model.metadata = mergedModel;
-    model.annotations = Object.keys(mergedModel._annotations).reduce(
-      (acc, key) => {
-        const value = mergedModel._annotations[key];
-        const uniqueTargets: any[] = [];
-        for (const list of value) {
-          const match = acc.find((a) => a.target === list.target);
-          if (match) {
-            for (const annotation of list.annotations) {
-              const matchedAnnotation = match.annotations.find(
-                (a) =>
-                  a.term === annotation.term &&
-                  a.qualifier === annotation.qualifier
-              );
-              if (!matchedAnnotation) {
-                match.annotations.push(annotation);
-              }
-            }
-          } else {
-            uniqueTargets.push(list);
-          }
-        }
-        return [...acc, ...uniqueTargets];
-      },
-      [] as any[]
-    );
+  //   // model.metadata = mergedModel;
+  //   model.annotations = Object.keys(mergedModel._annotations).reduce(
+  //     (acc, key) => {
+  //       const value = mergedModel._annotations[key];
+  //       const uniqueTargets: any[] = [];
+  //       for (const list of value) {
+  //         const match = acc.find((a) => a.target === list.target);
+  //         if (match) {
+  //           for (const annotation of list.annotations) {
+  //             const matchedAnnotation = match.annotations.find(
+  //               (a) =>
+  //                 a.term === annotation.term &&
+  //                 a.qualifier === annotation.qualifier
+  //             );
+  //             if (!matchedAnnotation) {
+  //               match.annotations.push(annotation);
+  //             }
+  //           }
+  //         } else {
+  //           uniqueTargets.push(list);
+  //         }
+  //       }
+  //       return [...acc, ...uniqueTargets];
+  //     },
+  //     [] as any[]
+  //   );
 
-    convertMetadata(model, mergedModel);
-    const cache = buildAnnotationPathCache(model);
-    model.pathExpressions["annotationPath"] = cache;
-    model.pathExpressions["annotationPathCc"] = cache;
-    buildMetadataPathCache(model);
-  }
-
+  // convertMetadata(model, mergedModel);
+  // const cache = buildAnnotationPathCache(model);
+  // model.pathExpressions["annotationPath"] = cache;
+  // model.pathExpressions["annotationPathCc"] = cache;
+  // buildMetadataPathCache(model);
+  // }
   return model;
-}
-
-function buildMetadataPathCache(model: model.UI5SemanticModel): void {
-  model.pathExpressions["targetPath"] = {};
-  model.pathExpressions["pathCc"] = {};
-  const targetPathRoot = model.pathExpressions["targetPath"];
-  const propertyPathRoot = model.pathExpressions["pathCc"];
-
-  const addComplexTypePropertyToCache = (
-    cacheRootEntry: unknown,
-    property: model.MetadataEntityTypeProperty
-  ) => {
-    addPathToObject(
-      cacheRootEntry,
-      `Edm.ComplexType/${property.fullyQualifiedName}`
-    );
-    const complexType = model.metadata.complexTypes.find(
-      (ct) => ct.fullyQualifiedName === property.structuredType
-    );
-    if (complexType) {
-      complexType.properties.forEach((prop) => {
-        if (prop.edmPrimitiveType) {
-          addPathToObject(
-            cacheRootEntry,
-            `Edm.PrimitiveType/${prop.fullyQualifiedName}`
-          );
-        } else if (prop.isComplexType) {
-          addComplexTypePropertyToCache(cacheRootEntry, prop);
-        }
-      });
-    }
-  };
-
-  const addPropertyToCache = (
-    cacheRootEntry: unknown,
-    property: model.MetadataEntityTypeProperty
-  ) => {
-    if (property.edmPrimitiveType) {
-      addPathToObject(
-        cacheRootEntry,
-        `Edm.PrimitiveType/${property.fullyQualifiedName}`
-      );
-    }
-    if (property.isComplexType) {
-      addComplexTypePropertyToCache(cacheRootEntry, property);
-    }
-  };
-
-  propertyPathRoot["Edm.EntityType"] = {};
-  propertyPathRoot["Edm.PrimitiveType"] = {};
-  // TODO: support actions
-  model.metadata.entityTypes.forEach((entityType) => {
-    // register entity type itself
-    addPathToObject(targetPathRoot, entityType.fullyQualifiedName, {
-      $Self: entityType.fullyQualifiedName,
-    });
-    addPathToObject(
-      propertyPathRoot,
-      `Edm.EntityType/${entityType.fullyQualifiedName}`
-    );
-
-    // append navigation data
-    entityType.navigationProperties.forEach((property) => {
-      addPathToObject(
-        propertyPathRoot,
-        `Edm.EntityType/${property.fullyQualifiedName}`,
-        property.targetTypeName
-      );
-    });
-
-    entityType.entityProperties.forEach((property) => {
-      addPathToObject(
-        targetPathRoot,
-        property.fullyQualifiedName,
-        property.fullyQualifiedName
-      );
-      addPropertyToCache(propertyPathRoot, property);
-    });
-  });
-  const container = model.metadata.entityContainer;
-  if (container) {
-    addPathToObject(targetPathRoot, container.fullyQualifiedName, {
-      $Self: container.fullyQualifiedName,
-    });
-    model.metadata.entitySets.forEach((entry) => {
-      addPathToObject(
-        targetPathRoot,
-        entry.fullyQualifiedName,
-        entry.fullyQualifiedName
-      );
-    });
-  }
-}
-
-function buildAnnotationPathCache(model: model.UI5SemanticModel) {
-  const cache: model.AnnotationPathCache = {};
-  model.annotations.forEach((annotationList) => {
-    const targetName = resolveMetadataElementName(
-      model.metadata,
-      annotationList.target
-    );
-    annotationList.annotations.forEach((annotation) => {
-      addAnnotationToPathExpressionCache(
-        cache,
-        annotation,
-        targetName.fqn || annotationList.target
-      );
-    });
-  });
-  return cache;
 }
 
 function addLibraryToModel(
@@ -267,21 +139,6 @@ function convertLibraryToSemanticModel(
     functions: newMap(),
     namespaces: newMap(),
     typedefs: newMap(),
-    annotations: [],
-    metadata: {
-      actions: [],
-      entitySets: [],
-      entityTypes: [],
-      namespace: "",
-      namespaceAlias: "",
-      namespaces: new Set(),
-      lookupMap: new Map(),
-      actionMap: new Map(),
-      navigationSourceMap: {},
-      complexTypes: [],
-    },
-    pathExpressions: {},
-    customViews: {},
   };
   if (lib.symbols === undefined) {
     return model;

@@ -1,5 +1,24 @@
 export type UI5Framework = "OpenUI5" | "SAPUI5";
 
+export interface AppContext {
+  services: Record<string, ServiceDetails>;
+  manifest?: ManifestDetails;
+  ui5Model: UI5SemanticModel;
+}
+
+export type ManifestDetails = {
+  flexEnabled: boolean | undefined;
+  minUI5Version: string | undefined;
+  mainServicePath?: string;
+  customViews: { [name: string]: { entitySet: string } };
+};
+
+export interface ServiceDetails {
+  metadata: Metadata;
+  pathExpressions: PathExpressions;
+  annotations: any[];
+}
+
 export interface UI5SemanticModel {
   version?: string;
   framework?: UI5Framework;
@@ -13,28 +32,6 @@ export interface UI5SemanticModel {
   typedefs: Record<string, UI5Typedef>;
   // Likely Not Relevant for XML.Views
   functions: Record<string, UI5Function>;
-  annotations: any[];
-  metadata: Metadata;
-  pathExpressions: PathExpressions;
-  customViews: Record<
-    string,
-    {
-      entitySet: string;
-      controllerApi?: ControllerApi;
-    }
-  >;
-}
-
-export interface ControllerApi {
-  /**
-   * Name of the controller
-   */
-  name: string;
-
-  /**
-   * List of properties provided by the controller.
-   */
-  properties: PropertyType[];
 }
 
 export interface PropertyType {

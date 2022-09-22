@@ -12,7 +12,6 @@ import { validateUnknownTagName } from "./elements/unknown-tag-name";
 import { validateExplicitAggregationCardinality } from "./elements/cardinality-of-aggregation";
 import { validateAggregationType } from "./elements/type-of-aggregation";
 import { validateUnknownAnnotationPath } from "./attributes/unknown-annotation-path";
-import { validateUnknownElementId } from "./attributes/unknown-element-id";
 import { validateUnknownAnnotationTarget } from "./attributes/unknown-annotation-target";
 import { validateUnknownPropertyPath } from "./attributes/unknown-property-path";
 
@@ -46,7 +45,6 @@ export const defaultValidators: UI5ValidatorsConfig = {
     validateBooleanValue,
     validateUnknownAttributeKey,
     validateUseOfDeprecatedAttribute,
-    validateUnknownElementId,
     validateUnknownPropertyPath,
   ],
 };

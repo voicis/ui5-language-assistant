@@ -22,22 +22,32 @@ export function contextPathSuggestions({
   attribute,
   context,
 }: UI5AttributeValueCompletionOptions): AnnotationTargetInXMLAttributeValueCompletion[] {
-  const ui5Property = getUI5PropertyByXMLAttributeKey(attribute, context);
+  const ui5Property = getUI5PropertyByXMLAttributeKey(
+    attribute,
+    context.ui5Model
+  );
 
   if (
     ui5Property?.library === "sap.fe.macros" &&
     ui5Property.name === "contextPath"
   ) {
     const control = element.name || "";
+    const mainServicePath = context.manifest?.mainServicePath;
+    const service = mainServicePath
+      ? context.services[mainServicePath]
+      : undefined;
+    if (!service) {
+      return [];
+    }
     const filteredTargets = isPropertyPathAllowed(control)
-      ? context.metadata.entityTypes.map((entry) => entry.fullyQualifiedName)
-      : context.annotations
+      ? service.metadata.entityTypes.map((entry) => entry.fullyQualifiedName)
+      : service.annotations
           .filter(
             (entry) =>
               filterAnnotationsForControl(control, entry.annotations).length > 0
           )
           .map((entry) => entry.target);
-    const targetMap = resolveTargets(context.metadata, filteredTargets);
+    const targetMap = resolveTargets(service.metadata, filteredTargets);
     const distinctTargets = [
       ...new Set(
         filteredTargets

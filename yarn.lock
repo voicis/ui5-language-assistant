@@ -1346,12 +1346,24 @@
   resolved "https://registry.yarnpkg.com/@sap-ux/annotation-converter/-/annotation-converter-0.5.19.tgz#cca21210fd98baad6bbd8a6db657672caca5bc00"
   integrity sha512-sGOHj/2K0IqUxWYAfbR7ZO7RmxNguuByAOv6E6XeF+8tvFmeQCNR08AyMO3TPkBpegNzgRHgp0nFkcd3QgTWOw==
 
+"@sap-ux/edmx-parser@0.5.12":
+  version "0.5.12"
+  resolved "https://registry.yarnpkg.com/@sap-ux/edmx-parser/-/edmx-parser-0.5.12.tgz#c165c797fd33fbfb3a4d3003ff041203c5bc3a57"
+  integrity sha512-XKIAfCKtw6AKUo1V45L+stZoCgPon5CaPYizPRi5qCxFrtb0aHpft6dg35gMINCID6UNDEDQWcNT1Fjz7Rp3NA==
+  dependencies:
+    xml-js "1.6.11"
+
 "@sap-ux/edmx-parser@^0.5.11":
   version "0.5.11"
   resolved "https://registry.yarnpkg.com/@sap-ux/edmx-parser/-/edmx-parser-0.5.11.tgz#ef8902b18101d5657135a2e49ae5c0e7cdcb590d"
   integrity sha512-zf0/qoH/s1B650HsNec85BSP3xa0QDxdL3AOFQQPBlFAVgM0HS3rK3ndXt2LHfnpCVwvVLFlPIuVK2vPO8uL0w==
   dependencies:
     xml-js "1.6.11"
+
+"@sap-ux/vocabularies-types@0.6.7":
+  version "0.6.7"
+  resolved "https://registry.yarnpkg.com/@sap-ux/vocabularies-types/-/vocabularies-types-0.6.7.tgz#fb5f75d64ff08cddaf8fecdc9a5522fb58f50674"
+  integrity sha512-FD9ITiHhRuG48/3AuyYaZNahoJoPXov44cAXDA5REHAvPYA2AZ3Fqqy1v+J9kcZhzqaFjssCV/2mhW5Ezu0iAw==
 
 "@sap/swa-for-sapbas-vsx@1.1.9":
   version "1.1.9"

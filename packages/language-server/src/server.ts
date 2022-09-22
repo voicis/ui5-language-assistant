@@ -1,5 +1,6 @@
 /* istanbul ignore file */
 import { forEach } from "lodash";
+import { fileURLToPath } from "url";
 import { join } from "path";
 import {
   createConnection,
@@ -24,7 +25,6 @@ import {
 } from "@ui5-language-assistant/settings";
 import { commands } from "@ui5-language-assistant/user-facing-text";
 import { ServerInitializationOptions } from "../api";
-import { getSemanticModel, invalidateCache } from "./ui5-model";
 import { getCompletionItems } from "./completion-items";
 import { getXMLViewDiagnostics } from "./xml-view-diagnostics";
 import { getHoverResponse } from "./hover";
@@ -47,6 +47,17 @@ import { executeCommand } from "./commands";
 import { initSwa } from "./swa";
 import { getLogger, setLogLevel } from "./logger";
 import { getCDNBaseUrl } from "./ui5-helper";
+import {
+  getServiceMetadataForAppFile,
+  updateServiceFiles,
+  getSemanticModel,
+  getAppContext,
+  init,
+  getContextForFile,
+  updateManifestData2,
+  updateAppFile,
+} from "./cache";
+import { findAllApps } from "@sap-ux/project-access";
 
 const connection = createConnection(ProposedFeatures.all);
 const documents = new TextDocuments(TextDocument);
@@ -55,7 +66,7 @@ let ui5yamlStateInitialized: Promise<void[]> | undefined = undefined;
 let initializationOptions: ServerInitializationOptions | undefined;
 let hasConfigurationCapability = false;
 
-connection.onInitialize((params: InitializeParams) => {
+connection.onInitialize(async (params: InitializeParams) => {
   getLogger().info("`onInitialize` event", params);
   if (params?.initializationOptions?.logLevel) {
     setLogLevel(params?.initializationOptions?.logLevel);
@@ -63,6 +74,11 @@ connection.onInitialize((params: InitializeParams) => {
   initSwa(params);
 
   const capabilities = params.capabilities;
+  const wsRoots = (params.workspaceFolders ?? []).map((f) =>
+    fileURLToPath(f.uri)
+  );
+  const roots = await findAllApps(wsRoots);
+  await init(roots);
   const workspaceFolderUri = params.rootUri;
   if (workspaceFolderUri !== null) {
     const workspaceFolderAbsPath = URI.parse(workspaceFolderUri).fsPath;
@@ -121,28 +137,20 @@ connection.onCompletion(
     const documentUri = textDocumentPosition.textDocument.uri;
     const document = documents.get(documentUri);
     if (document) {
-      const documentPath = URI.parse(documentUri).fsPath;
-      const minUI5Version = getMinUI5VersionForXMLFile(documentPath);
-      const framework = getUI5FrameworkForXMLFile(documentPath);
-      const cacheKey = textDocumentPosition.textDocument.uri.split("webapp")[0];
-      const manifest = getManifestDetails(documentPath);
-      const model = await getSemanticModel(
-        initializationOptions?.modelCachePath,
-        cacheKey,
-        manifest,
-        framework,
-        minUI5Version,
-        false
+      const context = await getContextForFile(
+        documentUri,
+        initializationOptions?.modelCachePath
       );
+      const framework = context.ui5Model.framework ?? "SAPUI5";
       connection.sendNotification("UI5LanguageAssistant/ui5Model", {
-        url: getCDNBaseUrl(framework, model.version),
+        url: getCDNBaseUrl(framework, context.ui5Model.version),
         framework,
-        version: model.version,
+        version: context.ui5Model.version,
       });
       ensureDocumentSettingsUpdated(document.uri);
       const documentSettings = await getSettingsForDocument(document.uri);
       const completionItems = getCompletionItems({
-        model,
+        context,
         textDocumentPosition,
         document,
         documentSettings,
@@ -170,25 +178,18 @@ connection.onHover(
     const documentUri = textDocumentPosition.textDocument.uri;
     const document = documents.get(documentUri);
     if (document) {
-      const documentPath = URI.parse(documentUri).fsPath;
-      const minUI5Version = getMinUI5VersionForXMLFile(documentPath);
-      const framework = getUI5FrameworkForXMLFile(documentPath);
-      const manifest = getManifestDetails(documentPath);
-      const cacheKey = textDocumentPosition.textDocument.uri.split("webapp")[0];
-      const ui5Model = await getSemanticModel(
-        initializationOptions?.modelCachePath,
-        cacheKey,
-        manifest,
-        framework,
-        minUI5Version
+      const context = await getContextForFile(
+        documentUri,
+        initializationOptions?.modelCachePath
       );
+      const framework = context.ui5Model.framework ?? "SAPUI5";
       connection.sendNotification("UI5LanguageAssistant/ui5Model", {
-        url: getCDNBaseUrl(framework, ui5Model.version),
+        url: getCDNBaseUrl(framework, context.ui5Model.version),
         framework,
-        version: ui5Model.version,
+        version: context.ui5Model.version,
       });
       const hoverResponse = getHoverResponse(
-        ui5Model,
+        context.ui5Model,
         textDocumentPosition,
         document
       );
@@ -203,23 +204,28 @@ connection.onHover(
 
 connection.onDidChangeWatchedFiles(async (changeEvent) => {
   getLogger().debug("`onDidChangeWatchedFiles` event", { changeEvent });
+  const cdsFileChanges: string[] = [];
   forEach(changeEvent.changes, async (change) => {
     const uri = change.uri;
     if (isManifestDoc(uri)) {
       await updateManifestData(uri, change.type);
       const cacheKey = uri.split("webapp")[0];
-      invalidateCache(cacheKey);
+      await updateManifestData2(uri);
     } else if (isUI5YamlDoc(uri)) {
       await updateUI5YamlData(uri, change.type);
+    } else if (uri.endsWith(".cds")) {
+      cdsFileChanges.push(uri);
     } else {
       const cacheKey = uri.split("webapp")[0];
-      await updateManifestData(
-        join(cacheKey, "webapp", "manifest.json"),
-        change.type
-      );
-      invalidateCache(cacheKey);
+      await updateAppFile(uri);
+      // await updateManifestData(
+      //   join(cacheKey, "webapp", "manifest.json"),
+      //   change.type
+      // );
+      // invalidateCache(cacheKey);
     }
   });
+  await updateServiceFiles(cdsFileChanges);
 });
 
 documents.onDidChangeContent(async (changeEvent) => {
@@ -236,28 +242,20 @@ documents.onDidChangeContent(async (changeEvent) => {
   const documentUri = changeEvent.document.uri;
   const document = documents.get(documentUri);
   if (document !== undefined) {
-    const documentPath = URI.parse(documentUri).fsPath;
-    const flexEnabled = getFlexEnabledFlagForXMLFile(documentPath);
-    const minUI5Version = getMinUI5VersionForXMLFile(documentPath);
-    const framework = getUI5FrameworkForXMLFile(documentPath);
-    const manifest = getManifestDetails(documentPath);
-    const cacheKey = changeEvent.document.uri.split("webapp")[0];
-    const ui5Model = await getSemanticModel(
-      initializationOptions?.modelCachePath,
-      cacheKey,
-      manifest,
-      framework,
-      minUI5Version
+    const context = await getContextForFile(
+      documentUri,
+      initializationOptions?.modelCachePath
     );
+    const framework = context.ui5Model.framework ?? "SAPUI5";
     connection.sendNotification("UI5LanguageAssistant/ui5Model", {
-      url: getCDNBaseUrl(framework, ui5Model.version),
+      url: getCDNBaseUrl(framework, context.ui5Model.version),
       framework,
-      version: ui5Model.version,
+      version: context.ui5Model.version,
     });
     const diagnostics = getXMLViewDiagnostics({
       document,
-      ui5Model,
-      flexEnabled,
+      context,
+      flexEnabled: context.manifest?.flexEnabled,
     });
     getLogger().trace("computed diagnostics", { diagnostics });
     connection.sendDiagnostics({ uri: changeEvent.document.uri, diagnostics });
@@ -267,35 +265,29 @@ documents.onDidChangeContent(async (changeEvent) => {
 connection.onCodeAction(async (params) => {
   getLogger().debug("`onCodeAction` event", { params });
 
-  const docUri = params.textDocument.uri;
-  const textDocument = documents.get(docUri);
+  const documentUri = params.textDocument.uri;
+  const textDocument = documents.get(documentUri);
   if (textDocument === undefined) {
     return undefined;
   }
 
-  const documentPath = URI.parse(docUri).fsPath;
-  const minUI5Version = getMinUI5VersionForXMLFile(documentPath);
-  const framework = getUI5FrameworkForXMLFile(documentPath);
-  const manifest = getManifestDetails(documentPath);
-  const cacheKey = params.textDocument.uri.split("webapp")[0];
-  const ui5Model = await getSemanticModel(
-    initializationOptions?.modelCachePath,
-    cacheKey,
-    manifest,
-    framework,
-    minUI5Version
+  const context = await getContextForFile(
+    documentUri,
+    initializationOptions?.modelCachePath
   );
+  const framework = context.ui5Model.framework ?? "SAPUI5";
+
   connection.sendNotification("UI5LanguageAssistant/ui5Model", {
-    url: getCDNBaseUrl(framework, ui5Model.version),
+    url: getCDNBaseUrl(framework, context.ui5Model.version),
     framework,
-    version: ui5Model.version,
+    version: context.ui5Model.version,
   });
 
   const diagnostics = params.context.diagnostics;
   const codeActions = diagnosticToCodeActionFix(
     textDocument,
     diagnostics,
-    ui5Model
+    context
   );
   getLogger().trace("`computed codeActions", { codeActions });
   return codeActions;
