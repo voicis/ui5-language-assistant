@@ -23,6 +23,7 @@
     "@ui5-language-assistant/logic-utils": "^3.3.0",
     "@ui5-language-assistant/semantic-model-types": "^3.3.0",
     "@ui5-language-assistant/user-facing-text": "^3.2.1",
+    "@sap-ux/vocabularies-types": "0.6.7",
     "@xml-tools/ast": "5.0.0",
     "@xml-tools/common": "0.1.2",
     "deep-freeze-strict": "1.1.1",

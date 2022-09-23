@@ -21,6 +21,7 @@
   "typings": "./api.d.ts",
   "dependencies": {
     "@ui5-language-assistant/logic-utils": "^3.3.0",
+    "@sap-ux/vocabularies-types": "0.6.7",
     "@xml-tools/ast": "5.0.0",
     "@xml-tools/common": "0.1.2",
     "@xml-tools/content-assist": "3.1.7",

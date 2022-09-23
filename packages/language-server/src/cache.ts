@@ -28,30 +28,101 @@ import {
 } from "@sap-ux/project-access";
 
 import { parse, merge } from "@sap-ux/edmx-parser";
+import { convert } from "@sap-ux/annotation-converter";
+import { ConvertedMetadata as AVTMetadata } from "@sap-ux/vocabularies-types";
 import type { Manifest } from "@sap-ux/project-types";
 import { getUI5FrameworkForXMLFile } from "./ui5yaml-handling";
-import { isCapProject } from "@sap-ux/project-access/dist/project/cap";
+import {
+  isCapJavaProject,
+  isCapNodeJsProject,
+  isCapProject,
+} from "@sap-ux/project-access/dist/project/cap";
 import {
   addAnnotationToPathExpressionCache,
   addPathToObject,
 } from "./pathCache";
 import { resolveMetadataElementName } from "@ui5-language-assistant/logic-utils";
+import { findProjectRoot } from "@sap-ux/project-access/dist/project/findApps";
 
-const cache: Map<string, CachedProject> = new Map();
+import { FileName } from "@sap-ux/project-types";
+import { Configuration, UI5Config } from "@sap-ux/ui5-config";
+import findUp from "find-up";
 
-type CachedApp = AllAppResults & {
+const CAP_PROJECT_TYPE = "CAP";
+interface CAPProject {
+  type: typeof CAP_PROJECT_TYPE;
+  kind: CAPProjectKind;
+  root: string;
+  ui5Config?: UI5Config;
+  /**
+   * Mapping from service path to service metadata
+   */
+  services: Map<string, string>;
+  apps: Map<string, CachedApp>;
+}
+
+const UI5_PROJECT_TYPE = "UI5";
+
+interface UI5Project {
+  type: typeof UI5_PROJECT_TYPE;
+
+  root: string;
+  ui5Config?: Configuration;
+  app?: CachedApp;
+}
+
+type CAPProjectKind = "Java" | "NodeJS";
+type ProjectKind = CAPProjectKind;
+type ProjectType = typeof UI5_PROJECT_TYPE | typeof CAP_PROJECT_TYPE;
+type Project = UI5Project | CAPProject;
+
+async function getUI5Config(
+  projectRoot: string
+): Promise<Configuration | undefined> {
+  try {
+    const ui5YamlPath = join(projectRoot, FileName.Ui5Yaml);
+    const yamlString = await readFile(ui5YamlPath, "utf-8");
+    const ui5Config = await UI5Config.newInstance(yamlString);
+    return ui5Config.getConfiguration();
+  } catch {
+    return undefined;
+  }
+}
+
+async function getUI5Manifest(
+  webappRoot: string
+): Promise<Manifest | undefined> {
+  try {
+    const manifestPath = join(webappRoot, FileName.Manifest);
+    const manifestString = await readFile(manifestPath, "utf-8");
+    return JSON.parse(manifestString);
+  } catch {
+    return undefined;
+  }
+}
+
+async function findAppRoot(path: string): Promise<string | undefined> {
+  const manifestJson = await findUp(FileName.Manifest, { cwd: path });
+  if (manifestJson) {
+    return normalize(join(manifestJson, ".."));
+  }
+  return undefined;
+}
+
+const cache: Map<string, Project> = new Map();
+
+type CachedApp = {
+  appRoot: string;
+  projectRoot: string;
+  manifest: Manifest;
   manifestDetails?: ManifestDetails;
   localServices: Map<string, CachedService>;
 };
-interface CachedProject {
-  root: string;
-  services: Map<string, CachedService>;
-  apps: Map<string, CachedApp>;
-}
 
 interface CachedService {
   path: string;
   annotations: any[];
+  convertedMetadata: AVTMetadata;
   metadata: Metadata;
   pathExpressions: PathExpressions;
 }
@@ -64,65 +135,101 @@ const semanticModelCache: Record<
 
 const serviceLookup: { [file: string]: string } = {};
 
-function getProject(root: string): CachedProject {
+async function getProject(root: string): Promise<Project> {
   const cachedProject = cache.get(root);
   if (cachedProject) {
     return cachedProject;
   }
-  const project: CachedProject = {
-    root,
-    services: new Map(),
-    apps: new Map(),
-  };
-  cache.set(root, project);
-  return project;
+  const typeAndKind = await getProjectTypeAndKind(root);
+  if (typeAndKind.type === CAP_PROJECT_TYPE) {
+    const project: CAPProject = {
+      ...typeAndKind,
+      root,
+      services: new Map(),
+      apps: new Map(),
+    };
+    await loadCapServices(project);
+    cache.set(root, project);
+    return project;
+  } else {
+    const ui5Config = await getUI5Config(root);
+    const project: UI5Project = {
+      ...typeAndKind,
+      root,
+      ui5Config,
+    };
+    cache.set(root, project);
+    return project;
+  }
+}
+
+async function getProjectTypeAndKind(
+  projectRoot: string
+): Promise<
+  | { type: typeof CAP_PROJECT_TYPE; kind: CAPProjectKind }
+  | { type: typeof UI5_PROJECT_TYPE }
+> {
+  if (await isCapJavaProject(projectRoot)) {
+    return {
+      type: CAP_PROJECT_TYPE,
+      kind: "Java",
+    };
+  } else if (await isCapNodeJsProject(projectRoot)) {
+    return {
+      type: CAP_PROJECT_TYPE,
+      kind: "NodeJS",
+    };
+  } else {
+    return {
+      type: UI5_PROJECT_TYPE,
+    };
+  }
 }
 
 export async function init(apps: AllAppResults[]): Promise<void> {
-  const projects = new Set<CachedProject>();
-  for (const app of apps) {
-    const cachedProject = getProject(app.projectRoot);
-    projects.add(cachedProject);
-    const manifestDetails = await getManifestDetails(app);
-    const localServices = new Map<string, CachedService>();
-    const localServiceFiles = await getLocalServiceData(app);
-    if (localServiceFiles) {
-      const localService = parseServiceFiles(localServiceFiles);
-      if (localService) {
-        localServices.set(localService.path, localService);
-      }
-    }
-    cachedProject.apps.set(app.appRoot, {
-      ...app,
-      manifestDetails,
-      localServices,
-    });
-  }
-
-  for (const cachedProject of projects) {
-    if (await isCapProject(cachedProject.root)) {
-      await updateCapProject(cachedProject);
-    }
-  }
+  // const projects = new Set<CachedProject>();
+  // for (const app of apps) {
+  //   const cachedProject = getProject(app.projectRoot);
+  //   projects.add(cachedProject);
+  //   const manifestDetails = await getManifestDetails(app);
+  //   const localServices = new Map<string, CachedService>();
+  //   const localServiceFiles = await getLocalServiceData(app);
+  //   if (localServiceFiles) {
+  //     const localService = parseServiceFiles(localServiceFiles);
+  //     if (localService) {
+  //       localServices.set(localService.path, localService);
+  //     }
+  //   }
+  //   cachedProject.apps.set(app.appRoot, {
+  //     ...app,
+  //     manifestDetails,
+  //     localServices,
+  //   });
+  // }
+  // for (const cachedProject of projects) {
+  //   if (await isCapProject(cachedProject.root)) {
+  //     await updateCapProject(cachedProject);
+  //   }
+  // }
 }
 
-export async function updateApp(app: CachedApp): Promise<void> {
-  const manifestDetails = await getManifestDetails(app);
-  const localServices = new Map<string, CachedService>();
-  const localServiceFiles = await getLocalServiceData(app);
-  if (localServiceFiles) {
-    const localService = parseServiceFiles(localServiceFiles);
-    if (localService) {
-      localServices.set(localService.path, localService);
-    }
-  }
-  const cachedProject = getProject(app.projectRoot);
-  cachedProject.apps.set(app.appRoot, {
-    ...app,
-    manifestDetails,
-    localServices,
-  });
-}
+// export async function updateApp(app: CachedApp, ): Promise<void> {
+//   const manifestDetails = await getManifestDetails(app);
+//   const localServices = new Map<string, CachedService>();
+//   const localServiceFiles = await getLocalServiceData(app);
+//   if (localServiceFiles) {
+//     const localService = parseServiceFiles(localServiceFiles);
+//     if (localService) {
+//       localServices.set(localService.path, localService);
+//     }
+//   }
+//   const cachedProject = getProject(app.projectRoot);
+//   cachedProject.apps.set(app.appRoot, {
+//     ...app,
+//     manifestDetails,
+//     localServices,
+//   });
+// }
 
 export async function getAppContext(
   modelCachePath: string | undefined,
@@ -153,10 +260,17 @@ export async function getContextForFile(
   modelCachePath?: string
 ): Promise<AppContext> {
   const documentPath = fileURLToPath(uri);
-  const minUI5Version = getMinUI5VersionForXMLFile(documentPath);
+  const projectRoot = await findProjectRoot(documentPath, false).catch(
+    () => undefined
+  );
+  const appRoot = await findAppRoot(documentPath);
+  // const webappPath = await (projectRoot);
   const framework = getUI5FrameworkForXMLFile(documentPath);
-  const project = getCachedProject(documentPath);
-  const app = getCachedApp(documentPath);
+  const project = projectRoot ? await getProject(projectRoot) : undefined;
+  const app = project && appRoot ? await getApp(project, appRoot) : undefined;
+  const minUI5Version =
+    app?.manifestDetails?.minUI5Version ??
+    getMinUI5VersionForXMLFile(documentPath);
 
   const cacheKey = uri.split("webapp")[0]; // TODO: improve project finding logic
   // const manifest = getManifestDetails(documentPath);
@@ -188,15 +302,10 @@ export async function getContextForFile(
       annotations: service.annotations,
       metadata: service.metadata,
       pathExpressions: service.pathExpressions,
+      convertedMetadata: service.convertedMetadata,
     };
   }
-  for (const [servicePath, service] of project?.services ?? new Map()) {
-    services[servicePath] = {
-      annotations: service.annotations,
-      metadata: service.metadata,
-      pathExpressions: service.pathExpressions,
-    };
-  }
+
   return {
     services,
     manifest: app?.manifestDetails,
@@ -272,29 +381,67 @@ export async function getServiceMetadataForAppFile(
 
 export async function updateManifestData2(uri: string): Promise<void> {
   const path = fileURLToPath(uri);
-  const app = getCachedApp(path);
+  const projectRoot = await findProjectRoot(path, false).catch(() => undefined);
+  const appRoot = await findAppRoot(path);
+  if (!projectRoot || !appRoot) {
+    return;
+  }
+
+  const project = await getProject(projectRoot);
+  const app = await loadApp(project, appRoot);
   if (app) {
-    await updateApp(app);
+    if (project.type === CAP_PROJECT_TYPE) {
+      project.apps.set(appRoot, app);
+    } else {
+      project.app = app;
+    }
   }
 }
 
 export async function updateAppFile(uri: string): Promise<void> {
   const path = fileURLToPath(uri);
-  const app = getCachedApp(path);
+  const projectRoot = await findProjectRoot(path, false).catch(() => undefined);
+  const appRoot = await findAppRoot(path);
+  if (!projectRoot || !appRoot) {
+    return;
+  }
+
+  const project = await getProject(projectRoot);
+  const app = await loadApp(project, appRoot);
   if (app) {
-    await updateApp(app);
+    if (project.type === CAP_PROJECT_TYPE) {
+      project.apps.set(appRoot, app);
+    } else {
+      project.app = app;
+    }
   }
 }
 
-async function updateCapProject(
-  cachedProject: CachedProject
-): Promise<CachedService | undefined> {
+export async function updatePackageJson(uri: string): Promise<void> {
+  const path = fileURLToPath(uri);
+  const projectRoot = await findProjectRoot(path, false).catch(() => undefined);
+  const appRoot = await findAppRoot(path);
+  if (!projectRoot || !appRoot) {
+    return;
+  }
+
+  cache.delete(projectRoot);
+
+  const project = await getProject(projectRoot);
+  const app = await loadApp(project, appRoot);
+  if (app) {
+    if (project.type === CAP_PROJECT_TYPE) {
+      project.apps.set(appRoot, app);
+    } else {
+      project.app = app;
+    }
+  }
+}
+
+async function loadCapServices(project: CAPProject): Promise<void> {
   try {
-    const data = await getCapModelAndServices(cachedProject.root);
-    const cds = await loadModuleFromProject<any>(
-      cachedProject.root,
-      "@sap/cds"
-    );
+    const data = await getCapModelAndServices(project.root);
+    const cds = await loadModuleFromProject<any>(project.root, "@sap/cds");
     for (const service of data.services) {
       const metadataContent = cds.compile.to.edmx(data.model, {
         version: "v4",
@@ -302,15 +449,8 @@ async function updateCapProject(
         odataForeignKeys: true,
         odataContainment: false,
       });
-      const cachedService = parseServiceFiles({
-        metadataContent,
-        annotationFiles: [],
-        path: service.urlPath,
-      });
-      if (cachedService) {
-        cachedProject.services.set(service.urlPath, cachedService);
-        return cachedService;
-      }
+
+      project.services.set(service.urlPath, metadataContent);
     }
   } catch (error) {
     console.log(error);
@@ -318,21 +458,32 @@ async function updateCapProject(
   return undefined;
 }
 
-export async function updateServiceFiles(uris: string[]): Promise<void> {
-  const projects = new Set<CachedProject>();
-  for (const uri of uris) {
-    const path = fileURLToPath(uri);
-    const project = getCachedProject(path);
-    if (project) {
-      projects.add(project);
+async function updateCapProject(project: CAPProject): Promise<void> {
+  await loadCapServices(project);
+  const updatedApps = new Map<string, CachedApp>();
+  for (const [, app] of project.apps) {
+    const updatedApp = await loadApp(project, app.appRoot);
+    if (updatedApp) {
+      updatedApps.set(app.appRoot, updatedApp);
     }
   }
-  // const serviceRoot = serviceLookup[uri] ?? await getServiceRoot(uri);
-  //     if (serviceRoot) {
-  //     }
-  // }
-  for (const project of projects) {
-    await updateCapProject(project);
+  project.apps = updatedApps;
+}
+
+export async function updateServiceFiles(uris: string[]): Promise<void> {
+  const projectRoots = new Set<string>();
+  for (const uri of uris) {
+    const path = fileURLToPath(uri);
+    const projectRoot = await findProjectRoot(path).catch(() => undefined);
+    if (projectRoot) {
+      projectRoots.add(projectRoot);
+    }
+  }
+  for (const projectRoot of projectRoots) {
+    const project = await getProject(projectRoot);
+    if (project.type === CAP_PROJECT_TYPE) {
+      await updateCapProject(project);
+    }
   }
 }
 
@@ -359,50 +510,14 @@ async function getServiceRoot(uri: string): Promise<string | undefined> {
   return undefined;
 }
 
-// model.customViews = manifest?.customViews ?? {};
-
-// // read annotations
-
-// if (manifest?.metadataFile) {
-//   const myParsedEdmx = parser.parse(manifest.metadataFile);
-//   const annotations = manifest.annotationFiles.map(parser.parse);
-//   const mergedModel = parser.merge(myParsedEdmx, ...annotations);
-
-//   // model.metadata = mergedModel;
-//   model.annotations = Object.keys(mergedModel._annotations).reduce(
-//     (acc, key) => {
-//       const value = mergedModel._annotations[key];
-//       const uniqueTargets: any[] = [];
-//       for (const list of value) {
-//         const match = acc.find((a) => a.target === list.target);
-//         if (match) {
-//           for (const annotation of list.annotations) {
-//             const matchedAnnotation = match.annotations.find(
-//               (a) =>
-//                 a.term === annotation.term &&
-//                 a.qualifier === annotation.qualifier
-//             );
-//             if (!matchedAnnotation) {
-//               match.annotations.push(annotation);
-//             }
-//           }
-//         } else {
-//           uniqueTargets.push(list);
-//         }
-//       }
-//       return [...acc, ...uniqueTargets];
-//     },
-//     [] as any[]
-//   );
-
-//   convertMetadata(model, mergedModel);
-// }
-
-function getCachedProject(path: string): CachedProject | undefined {
+function getCachedProject(path: string): Project | undefined {
   let currentPath = path;
-  let matchedProject: CachedProject | undefined;
+  let matchedProject: Project | undefined;
+  const cachedProject = cache.get(currentPath);
+  if (cachedProject) {
+    return cachedProject;
+  }
   while (currentPath.length) {
-    matchedProject = cache.get(currentPath);
     if (matchedProject) {
       return matchedProject;
     }
@@ -415,25 +530,65 @@ function getCachedProject(path: string): CachedProject | undefined {
   return undefined;
 }
 
-function getCachedApp(path: string): CachedApp | undefined {
-  const project = getCachedProject(path);
-  if (!project) {
+async function getApp(
+  project: Project,
+  appRoot: string
+): Promise<CachedApp | undefined> {
+  if (project.type === UI5_PROJECT_TYPE) {
+    if (project.app) {
+      return project.app;
+    }
+    // const webAppPath = project.ui5Config?.paths?.webapp ?? 'webapp';
+    project.app = await loadApp(project, appRoot);
+    return project.app;
+  }
+
+  const cachedApp = project.apps.get(appRoot);
+  if (cachedApp) {
+    return cachedApp;
+  }
+
+  const app = await loadApp(project, appRoot);
+  if (app) {
+    project.apps.set(appRoot, app);
+  }
+
+  return app;
+}
+
+async function loadApp(
+  project: Project,
+  appRoot: string
+): Promise<CachedApp | undefined> {
+  const manifest = await getUI5Manifest(appRoot);
+  if (!manifest) {
     return undefined;
   }
-  let currentPath = path;
-  let matchedApp: CachedApp | undefined;
-  while (currentPath.length) {
-    matchedApp = project.apps.get(currentPath);
-    if (matchedApp) {
-      return matchedApp;
+  const manifestDetails = await getManifestDetails(manifest);
+  const localServices = new Map<string, CachedService>();
+  const localServiceFiles = await getLocalServiceData(appRoot, manifest);
+  if (localServiceFiles) {
+    const metadata =
+      project.type === CAP_PROJECT_TYPE
+        ? project.services.get(localServiceFiles.path)
+        : undefined;
+    if (metadata) {
+      // override local service metadata with latest metadata from service
+      localServiceFiles.metadataContent = metadata;
     }
-    const nextPath = normalize(join(currentPath, ".."));
-    if (nextPath === currentPath) {
-      return undefined;
+    const localService = parseServiceFiles(localServiceFiles);
+    if (localService) {
+      localServices.set(localService.path, localService);
     }
-    currentPath = nextPath;
   }
-  return undefined;
+  const app: CachedApp = {
+    projectRoot: project.root,
+    appRoot,
+    manifest,
+    manifestDetails,
+    localServices,
+  };
+  return app;
 }
 
 function getCachedService(
@@ -452,9 +607,9 @@ function getCachedService(
   return undefined;
 }
 
-async function getManifestDetails({
-  manifest,
-}: AllAppResults): Promise<ManifestDetails> {
+async function getManifestDetails(
+  manifest: Manifest
+): Promise<ManifestDetails> {
   const flexEnabled = manifest["sap.ui5"]?.flexEnabled;
   const minUI5Version = manifest["sap.ui5"]?.dependencies?.minUI5Version;
   const customViews = {};
@@ -465,7 +620,7 @@ async function getManifestDetails({
       const target = targets[name];
       if (target) {
         const settings = (target?.options as any)?.settings;
-        if (settings.entitySet && settings.viewName) {
+        if (settings?.entitySet && settings?.viewName) {
           customViews[settings.viewName] = {
             entitySet: settings.entitySet,
           };
@@ -501,11 +656,13 @@ function parseServiceFiles({
     return undefined;
   }
 
-  const myParsedEdmx = parse(metadataContent);
-  const annotations = annotationFiles.map((file) => parse(file));
+  const myParsedEdmx = parse(metadataContent, "metadata");
+  const annotations = annotationFiles.map((file, i) =>
+    parse(file, `annotationFile${i}`)
+  );
   const mergedModel = merge(myParsedEdmx, ...annotations);
 
-  // model.metadata = mergedModel;
+  const convertedMetadata = convert(mergedModel);
   const annotationsList = Object.keys((mergedModel as any)._annotations).reduce(
     (acc, key) => {
       const value = (mergedModel as any)._annotations[key];
@@ -538,6 +695,7 @@ function parseServiceFiles({
     annotations: annotationsList,
     pathExpressions: {},
     metadata,
+    convertedMetadata,
   };
   const cache = buildAnnotationPathCache(service);
   service.pathExpressions["annotationPath"] = cache;
@@ -547,22 +705,22 @@ function parseServiceFiles({
   return service;
 }
 
-async function getLocalServiceData({
-  manifest,
-  manifestPath,
-}: AllAppResults): Promise<ServiceFiles | undefined> {
+async function getLocalServiceData(
+  appRoot: string,
+  manifest: Manifest
+): Promise<ServiceFiles | undefined> {
   const mainServiceName = getMainService(manifest);
 
   if (mainServiceName !== undefined) {
     const metadataContent = await getLocalMetadataForService(
       manifest,
       mainServiceName,
-      manifestPath
+      appRoot
     );
     const annotationFiles = await getLocalAnnotationsForService(
       manifest,
       mainServiceName,
-      manifestPath
+      appRoot
     );
     const path = getServicePath(manifest, mainServiceName) ?? "";
 
@@ -608,7 +766,7 @@ function getServicePath(
 async function getLocalMetadataForService(
   manifest: Manifest,
   serviceName: string,
-  manifestPath: string
+  appRoot: string
 ): Promise<string | undefined> {
   const dataSources = manifest["sap.app"]?.dataSources;
 
@@ -618,7 +776,7 @@ async function getLocalMetadataForService(
     const localUri = defaultModelDataSource?.settings?.localUri;
     if (localUri) {
       try {
-        const metadataPath = join(manifestPath, localUri);
+        const metadataPath = join(appRoot, localUri);
         return await readFile(metadataPath, {
           encoding: "utf8",
         });
@@ -633,7 +791,7 @@ async function getLocalMetadataForService(
 async function getLocalAnnotationsForService(
   manifest: Manifest,
   serviceName: string,
-  manifestPath: string
+  appRoot: string
 ): Promise<string[]> {
   const dataSources = manifest["sap.app"]?.dataSources;
   if (dataSources && serviceName !== undefined) {
@@ -645,7 +803,7 @@ async function getLocalAnnotationsForService(
       try {
         return await Promise.all(
           annotationFilePaths.map((path) =>
-            readFile(join(manifestPath, "..", path), {
+            readFile(join(appRoot, path), {
               encoding: "utf8",
             })
           )

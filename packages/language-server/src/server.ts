@@ -56,6 +56,7 @@ import {
   getContextForFile,
   updateManifestData2,
   updateAppFile,
+  updatePackageJson,
 } from "./cache";
 import { findAllApps } from "@sap-ux/project-access";
 
@@ -77,8 +78,8 @@ connection.onInitialize(async (params: InitializeParams) => {
   const wsRoots = (params.workspaceFolders ?? []).map((f) =>
     fileURLToPath(f.uri)
   );
-  const roots = await findAllApps(wsRoots);
-  await init(roots);
+  // const roots = await findAllApps(wsRoots);
+  // await init(roots);
   const workspaceFolderUri = params.rootUri;
   if (workspaceFolderUri !== null) {
     const workspaceFolderAbsPath = URI.parse(workspaceFolderUri).fsPath;
@@ -215,14 +216,12 @@ connection.onDidChangeWatchedFiles(async (changeEvent) => {
       await updateUI5YamlData(uri, change.type);
     } else if (uri.endsWith(".cds")) {
       cdsFileChanges.push(uri);
+    } else if (uri.endsWith("package.json")) {
+      await updatePackageJson(uri);
     } else {
+      // TODO: handle package.json
       const cacheKey = uri.split("webapp")[0];
       await updateAppFile(uri);
-      // await updateManifestData(
-      //   join(cacheKey, "webapp", "manifest.json"),
-      //   change.type
-      // );
-      // invalidateCache(cacheKey);
     }
   });
   await updateServiceFiles(cdsFileChanges);

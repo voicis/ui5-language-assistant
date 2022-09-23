@@ -25,6 +25,7 @@ import type {
   UI5SemanticModel,
 } from "@ui5-language-assistant/semantic-model-types";
 import { completePathExpressions, EdmType } from "./pathUtils";
+import { ConvertedMetadata } from "@sap-ux/vocabularies-types";
 
 export interface CompletionItem {
   name: string;
@@ -259,6 +260,23 @@ function getAssociationsForEntityType(
 function isPropertyPathAllowed(control: string): boolean {
   return control === "Field";
 }
+
+// function collectAnnotationsForType(convertedMetadata: ConvertedMetadata, entityType: string, allowedTerms: string[]) {
+//   const type = convertedMetadata.entityTypes.find(entity => entity.fullyQualifiedName === entityType)
+//   if (type) {
+//     type.annotations._annotations
+//   }
+//   const annotationsForTarget = annotations.filter((annotationList) => {
+//     const namespaceEndIndex = annotationList.target.indexOf(".");
+
+//     return (
+//       contextPath === `/${annotationList.target.slice(namespaceEndIndex + 1)}`
+//     );
+//   });
+//   return [].concat(
+//     ...annotationsForTarget.map((entry) => entry.annotations || [])
+//   );
+// }
 
 function collectAnnotationsForTarget(annotations: any[], contextPath: string) {
   const annotationsForTarget = annotations.filter((annotationList) => {
