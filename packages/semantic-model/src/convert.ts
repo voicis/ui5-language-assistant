@@ -17,14 +17,6 @@ import * as apiJson from "./api-json";
 import { isLibraryFile } from "./validate";
 import { fixLibrary } from "./fix-api-json";
 import { error, hasProperty, newMap } from "./utils";
-// import { convertMetadata } from "./convertMetadata";
-// import {
-//   addAnnotationToPathExpressionCache,
-//   addPathToObject,
-// } from "@ui5-language-assistant/language-server/src/pathCache";
-
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const parser = require("@sap-ux/edmx-parser");
 
 export function convertToSemanticModel(
   libraries: Record<string, Json>,
@@ -73,47 +65,6 @@ export function convertToSemanticModel(
     },
     model
   );
-
-  // read annotations
-
-  // if (manifest?.metadataFile) {
-  //   const myParsedEdmx = parser.parse(manifest.metadataFile);
-  //   const annotations = manifest.annotationFiles.map(parser.parse);
-  //   const mergedModel = parser.merge(myParsedEdmx, ...annotations);
-
-  //   // model.metadata = mergedModel;
-  //   model.annotations = Object.keys(mergedModel._annotations).reduce(
-  //     (acc, key) => {
-  //       const value = mergedModel._annotations[key];
-  //       const uniqueTargets: any[] = [];
-  //       for (const list of value) {
-  //         const match = acc.find((a) => a.target === list.target);
-  //         if (match) {
-  //           for (const annotation of list.annotations) {
-  //             const matchedAnnotation = match.annotations.find(
-  //               (a) =>
-  //                 a.term === annotation.term &&
-  //                 a.qualifier === annotation.qualifier
-  //             );
-  //             if (!matchedAnnotation) {
-  //               match.annotations.push(annotation);
-  //             }
-  //           }
-  //         } else {
-  //           uniqueTargets.push(list);
-  //         }
-  //       }
-  //       return [...acc, ...uniqueTargets];
-  //     },
-  //     [] as any[]
-  //   );
-
-  // convertMetadata(model, mergedModel);
-  // const cache = buildAnnotationPathCache(model);
-  // model.pathExpressions["annotationPath"] = cache;
-  // model.pathExpressions["annotationPathCc"] = cache;
-  // buildMetadataPathCache(model);
-  // }
   return model;
 }
 

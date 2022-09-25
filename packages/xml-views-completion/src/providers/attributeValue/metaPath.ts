@@ -1,5 +1,6 @@
 import {
   filterAnnotationsForControl,
+  getAllowedAnnotationsTermsForControl,
   getElementAttributeValue,
   getEntitySetFromController,
   getEntityTypeForEntitySet,
@@ -15,17 +16,14 @@ import type {
   AppContext,
   EntityTypeFullyQualifiedName,
   Metadata,
-  MetadataElement,
-  MetadataElementBase,
   MetadataElementFullyQualifiedName,
-  MetadataEntityType,
   MetadataEntityTypeNavigationProperty,
-  MetadataEntityTypeProperty,
   ServiceDetails,
-  UI5SemanticModel,
 } from "@ui5-language-assistant/semantic-model-types";
 import { completePathExpressions, EdmType } from "./pathUtils";
 import { ConvertedMetadata } from "@sap-ux/vocabularies-types";
+import { AnnotationTerm } from "@ui5-language-assistant/logic-utils/src/api";
+import { EntityTypeAnnotations } from "@sap-ux/vocabularies-types/vocabularies/Edm_Types";
 
 export interface CompletionItem {
   name: string;
@@ -62,6 +60,7 @@ export function metaPathSuggestions({
     ui5Property.name === "metaPath"
   ) {
     let annotationList: any[] | undefined;
+    // ui5Property.
     let contextPath = getElementAttributeValue(element, "contextPath");
     const control = element.name ?? "";
     const mainServicePath = context.manifest?.mainServicePath;
@@ -80,10 +79,17 @@ export function metaPathSuggestions({
       const entitySet =
         getEntitySetFromController(element, context.manifest) ?? "";
       contextPath = `/${entitySet}`;
-      annotationList = collectAnnotationsForTarget(
-        service.annotations,
-        contextPath
-      );
+      const type = service.convertedMetadata.entitySets.find(
+        (e) => e.name === entitySet
+      )?.entityTypeName;
+      if (type) {
+        const allowedTerms = getAllowedAnnotationsTermsForControl(control);
+        annotationList = collectAnnotationsForType(
+          service.convertedMetadata,
+          type,
+          allowedTerms
+        );
+      }
     }
 
     // Entity type properties
@@ -114,12 +120,8 @@ export function metaPathSuggestions({
     }
     // Annotation terms
     if (annotationList?.length) {
-      const filteredAnnotations = filterAnnotationsForControl(
-        control,
-        annotationList
-      );
       result.push(
-        ...filteredAnnotations.map((annotation) => {
+        ...annotationList.map((annotation) => {
           const fullPath = annotation.qualifier
             ? `${annotation.term}#${annotation.qualifier}`
             : annotation.term;
@@ -261,22 +263,29 @@ function isPropertyPathAllowed(control: string): boolean {
   return control === "Field";
 }
 
-// function collectAnnotationsForType(convertedMetadata: ConvertedMetadata, entityType: string, allowedTerms: string[]) {
-//   const type = convertedMetadata.entityTypes.find(entity => entity.fullyQualifiedName === entityType)
-//   if (type) {
-//     type.annotations._annotations
-//   }
-//   const annotationsForTarget = annotations.filter((annotationList) => {
-//     const namespaceEndIndex = annotationList.target.indexOf(".");
-
-//     return (
-//       contextPath === `/${annotationList.target.slice(namespaceEndIndex + 1)}`
-//     );
-//   });
-//   return [].concat(
-//     ...annotationsForTarget.map((entry) => entry.annotations || [])
-//   );
-// }
+function collectAnnotationsForType(
+  convertedMetadata: ConvertedMetadata,
+  entityType: string,
+  allowedTerms: AnnotationTerm[]
+): any[] {
+  const type = convertedMetadata.entityTypes.find(
+    (entity) => entity.fullyQualifiedName === entityType
+  );
+  const matchedAnnotations: any[] = [];
+  if (type) {
+    for (const term of allowedTerms) {
+      const annotations = type.annotations[term.alias];
+      const paths = Object.keys(annotations);
+      for (const path of paths) {
+        const annotation = annotations[path];
+        if (annotation.term === term.fullyQualifiedName) {
+          matchedAnnotations.push(annotation);
+        }
+      }
+    }
+  }
+  return matchedAnnotations;
+}
 
 function collectAnnotationsForTarget(annotations: any[], contextPath: string) {
   const annotationsForTarget = annotations.filter((annotationList) => {
@@ -290,3 +299,18 @@ function collectAnnotationsForTarget(annotations: any[], contextPath: string) {
     ...annotationsForTarget.map((entry) => entry.annotations || [])
   );
 }
+
+// function resolveContextPath(convertedMetadata: ConvertedMetadata, contextPath: string): string | undefined {
+//   if (!contextPath.startsWith('/')) {
+//     // relative paths not supported;
+//     return undefined;
+//   }
+//   const segments = contextPath.split('/');
+//   const firstSegment = segments[0];
+//   if (!firstSegment) {
+//     return undefined
+//   }
+//   const entitySet = convertedMetadata.entitySets.
+// }
+
+// function collectPaths()

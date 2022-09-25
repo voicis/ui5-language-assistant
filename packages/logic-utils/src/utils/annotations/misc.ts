@@ -1,6 +1,6 @@
 import { XMLElement } from "@xml-tools/ast";
 import { getRootElement } from "./xml-utils";
-import { specification } from "./spec";
+import { AnnotationTerm, specification } from "./spec";
 import { ManifestDetails } from "@ui5-language-assistant/semantic-model-types";
 
 export function getEntitySetFromController(
@@ -8,6 +8,7 @@ export function getEntitySetFromController(
   manifest: ManifestDetails | undefined
 ): string | undefined {
   let result: string | undefined;
+  // TODO: use app.id and relative path as view name
   const controllerName = getRootElement(element).attributes.find(
     (attribute) => attribute.key === "controllerName"
   )?.value;
@@ -19,7 +20,7 @@ export function getEntitySetFromController(
 
 export function getAllowedAnnotationsTermsForControl(
   controlName: string
-): string[] {
+): AnnotationTerm[] {
   const spec = specification[controlName];
   if (spec) {
     return spec.allowedAnnotations;

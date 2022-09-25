@@ -133,8 +133,6 @@ const semanticModelCache: Record<
   Promise<UI5SemanticModel>
 > = Object.create(null);
 
-const serviceLookup: { [file: string]: string } = {};
-
 async function getProject(root: string): Promise<Project> {
   const cachedProject = cache.get(root);
   if (cachedProject) {
@@ -186,51 +184,6 @@ async function getProjectTypeAndKind(
   }
 }
 
-export async function init(apps: AllAppResults[]): Promise<void> {
-  // const projects = new Set<CachedProject>();
-  // for (const app of apps) {
-  //   const cachedProject = getProject(app.projectRoot);
-  //   projects.add(cachedProject);
-  //   const manifestDetails = await getManifestDetails(app);
-  //   const localServices = new Map<string, CachedService>();
-  //   const localServiceFiles = await getLocalServiceData(app);
-  //   if (localServiceFiles) {
-  //     const localService = parseServiceFiles(localServiceFiles);
-  //     if (localService) {
-  //       localServices.set(localService.path, localService);
-  //     }
-  //   }
-  //   cachedProject.apps.set(app.appRoot, {
-  //     ...app,
-  //     manifestDetails,
-  //     localServices,
-  //   });
-  // }
-  // for (const cachedProject of projects) {
-  //   if (await isCapProject(cachedProject.root)) {
-  //     await updateCapProject(cachedProject);
-  //   }
-  // }
-}
-
-// export async function updateApp(app: CachedApp, ): Promise<void> {
-//   const manifestDetails = await getManifestDetails(app);
-//   const localServices = new Map<string, CachedService>();
-//   const localServiceFiles = await getLocalServiceData(app);
-//   if (localServiceFiles) {
-//     const localService = parseServiceFiles(localServiceFiles);
-//     if (localService) {
-//       localServices.set(localService.path, localService);
-//     }
-//   }
-//   const cachedProject = getProject(app.projectRoot);
-//   cachedProject.apps.set(app.appRoot, {
-//     ...app,
-//     manifestDetails,
-//     localServices,
-//   });
-// }
-
 export async function getAppContext(
   modelCachePath: string | undefined,
   cacheKey: string,
@@ -272,10 +225,7 @@ export async function getContextForFile(
     app?.manifestDetails?.minUI5Version ??
     getMinUI5VersionForXMLFile(documentPath);
 
-  const cacheKey = uri.split("webapp")[0]; // TODO: improve project finding logic
-  // const manifest = getManifestDetails(documentPath);
-
-  // const metadata = await getServiceMetadataForAppFile(uri);
+  const cacheKey = uri.split("webapp")[0]; // TODO: remove
 
   const ui5Model = await getSemanticModel(
     modelCachePath,
@@ -285,15 +235,6 @@ export async function getContextForFile(
     minUI5Version,
     false
   );
-  // const manifestData = manifest ?
-  //    {
-  //       flexEnabled: manifest?.flexEnabled,
-  //       minUi5Version: manifest?.minUI5Version,
-  //       customViews: manifest?.customViews,
-  //   }
-  //  : undefined
-
-  // const service = getCachedService(app);
 
   const services = {};
   for (const [servicePath, service] of app?.localServices ??
@@ -354,31 +295,6 @@ export async function getSemanticModelWithFetcher(
   }
   return semanticModelCache[frameWorkCacheKey];
 }
-
-// TODO: check multiple service case for XML
-
-/**
- * Returns metadata as XML string for the given application.
- * @param uri Uri of an file that belongs to an application
- */
-export async function getServiceMetadataForAppFile(
-  uri: string
-): Promise<string | undefined> {
-  // const serviceRoot = serviceLookup[uri] ?? await getServiceRoot(uri);
-  // if (!serviceRoot) {
-  //     return undefined;
-  // }
-  // const metadata = cache.services[serviceRoot];
-  // if (metadata) {
-  //     return metadata;
-  // }
-  // const edmx = await getCdsMetadata(serviceRoot);
-  // cache.services[serviceRoot] = edmx;
-
-  // return edmx;
-  return undefined;
-}
-
 export async function updateManifestData2(uri: string): Promise<void> {
   const path = fileURLToPath(uri);
   const projectRoot = await findProjectRoot(path, false).catch(() => undefined);
@@ -487,49 +403,6 @@ export async function updateServiceFiles(uris: string[]): Promise<void> {
   }
 }
 
-async function getServiceRoot(uri: string): Promise<string | undefined> {
-  const path = fileURLToPath(uri);
-
-  for (
-    let currentPath = path;
-    currentPath.split(sep).length > 0;
-    currentPath = normalize(join(currentPath, ".."))
-  ) {
-    // const existingService = cache.services[currentPath];
-    // if (existingService) {
-    //     return currentPath;
-    // }
-
-    const packageJsonPath = join(currentPath, "package.json");
-    try {
-      await readFile(packageJsonPath, "utf-8");
-      serviceLookup[uri] = currentPath;
-      return currentPath;
-    } catch (error) {}
-  }
-  return undefined;
-}
-
-function getCachedProject(path: string): Project | undefined {
-  let currentPath = path;
-  let matchedProject: Project | undefined;
-  const cachedProject = cache.get(currentPath);
-  if (cachedProject) {
-    return cachedProject;
-  }
-  while (currentPath.length) {
-    if (matchedProject) {
-      return matchedProject;
-    }
-    const nextPath = normalize(join(currentPath, ".."));
-    if (nextPath === currentPath) {
-      return undefined;
-    }
-    currentPath = nextPath;
-  }
-  return undefined;
-}
-
 async function getApp(
   project: Project,
   appRoot: string
@@ -589,22 +462,6 @@ async function loadApp(
     localServices,
   };
   return app;
-}
-
-function getCachedService(
-  app: CachedApp | undefined
-): CachedService | undefined {
-  if (!app) {
-    return undefined;
-  }
-  const mainServiceName = getMainService(app.manifest);
-
-  if (mainServiceName !== undefined) {
-    const path = getServicePath(app.manifest, mainServiceName) ?? "";
-    return app.localServices.get(path);
-  }
-
-  return undefined;
 }
 
 async function getManifestDetails(

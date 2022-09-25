@@ -39,13 +39,13 @@ export const defaultValidators: UI5ValidatorsConfig = {
   ],
   attribute: [
     validateUnknownEnumValue,
-    validateUnknownAnnotationPath,
-    validateUnknownAnnotationTarget,
+    // validateUnknownAnnotationPath,
+    // validateUnknownAnnotationTarget,
     validateUnknownXmlnsNamespace,
     validateBooleanValue,
     validateUnknownAttributeKey,
     validateUseOfDeprecatedAttribute,
-    validateUnknownPropertyPath,
+    // validateUnknownPropertyPath,
   ],
 };
 

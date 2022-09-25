@@ -48,11 +48,8 @@ import { initSwa } from "./swa";
 import { getLogger, setLogLevel } from "./logger";
 import { getCDNBaseUrl } from "./ui5-helper";
 import {
-  getServiceMetadataForAppFile,
   updateServiceFiles,
   getSemanticModel,
-  getAppContext,
-  init,
   getContextForFile,
   updateManifestData2,
   updateAppFile,
@@ -210,7 +207,6 @@ connection.onDidChangeWatchedFiles(async (changeEvent) => {
     const uri = change.uri;
     if (isManifestDoc(uri)) {
       await updateManifestData(uri, change.type);
-      const cacheKey = uri.split("webapp")[0];
       await updateManifestData2(uri);
     } else if (isUI5YamlDoc(uri)) {
       await updateUI5YamlData(uri, change.type);
@@ -219,8 +215,6 @@ connection.onDidChangeWatchedFiles(async (changeEvent) => {
     } else if (uri.endsWith("package.json")) {
       await updatePackageJson(uri);
     } else {
-      // TODO: handle package.json
-      const cacheKey = uri.split("webapp")[0];
       await updateAppFile(uri);
     }
   });

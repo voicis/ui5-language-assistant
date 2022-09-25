@@ -45,4 +45,7 @@ export {
   resolveMetadataElementName,
 } from "./utils/annotations";
 
-export type { MetadataElementNameResolutionResult } from "./utils/annotations";
+export type {
+  MetadataElementNameResolutionResult,
+  AnnotationTerm,
+} from "./utils/annotations";

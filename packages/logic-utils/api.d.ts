@@ -16,7 +16,7 @@ import {
   EntitySetFullyQualifiedName,
   MetadataEntityType,
 } from "@ui5-language-assistant/semantic-model-types";
-import { MetadataElementNameResolutionResult } from "./src/api";
+import { AnnotationTerm, MetadataElementNameResolutionResult } from "./src/api";
 
 export interface OffsetRange {
   start: number;
@@ -307,7 +307,7 @@ export function filterAnnotationsForControl(
  */
 export function getAllowedAnnotationsTermsForControl(
   controlName: string
-): string[];
+): AnnotationTerm[];
 
 /**
  * Returns metadata entity type object for the given entity set name

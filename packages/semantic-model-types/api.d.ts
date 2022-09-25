@@ -1,3 +1,4 @@
+import type { ConvertedMetadata } from "@sap-ux/vocabularies-types";
 export type UI5Framework = "OpenUI5" | "SAPUI5";
 
 export interface AppContext {
@@ -16,6 +17,7 @@ export type ManifestDetails = {
 export interface ServiceDetails {
   metadata: Metadata;
   pathExpressions: PathExpressions;
+  convertedMetadata: ConvertedMetadata;
   annotations: any[];
 }
 
